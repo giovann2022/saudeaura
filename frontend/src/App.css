@@ -1,0 +1,65 @@
+/* Estilo geral do formulário */
+.container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.bloco {
+  padding: 15px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+/* Estrutura de colunas para o PC */
+.linha {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.coluna { flex: 1; }
+.coluna-maior { flex: 2; }
+.coluna-menor { width: 80px; }
+
+/* Estilo padronizado para todos os inputs */
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box; /* Impede que o campo vaze da tela */
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #27ae60;
+  box-shadow: 0 0 5px rgba(39, 174, 96, 0.3);
+}
+
+/* =========================================
+   A MÁGICA PARA O CELULAR (SMARTPHONE)
+   ========================================= */
+@media (max-width: 600px) {
+  .linha {
+    flex-direction: column; /* Coloca um campo debaixo do outro */
+    gap: 0;
+  }
+  
+  .coluna-menor, .coluna-maior, .coluna {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  
+  .container {
+    margin: 10px; /* Reduz a margem lateral em telas pequenas */
+    padding: 15px;
+  }
+}

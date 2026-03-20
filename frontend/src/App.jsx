@@ -32,10 +32,10 @@ function App() {
 
   const buscarTudo = async () => {
     try {
-      const resE = await axios.get('http://localhost:3000/eventos'); setListaEventos(resE.data);
+      const resE = await axios.get('https://api.saudeaura.site/eventos'); setListaEventos(resE.data);
       if (resE.data.length > 0 && !eventoSelecionadoId) setEventoSelecionadoId(resE.data[0].id);
-      const resP = await axios.get('http://localhost:3000/pacientes'); setListaPacientes(resP.data);
-      const resU = await axios.get('http://localhost:3000/usuarios'); setListaUsuarios(resU.data);
+      const resP = await axios.get('https://api.saudeaura.site/pacientes'); setListaPacientes(resP.data);
+      const resU = await axios.get('https://api.saudeaura.site/usuarios'); setListaUsuarios(resU.data);
     } catch (e) {}
   }
 
@@ -124,10 +124,10 @@ function App() {
     const dados = { evento_id: eventoSelecionadoId, dia_atendimento: dia, tipo_tratamento: tipoTratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3 };
     try {
       if (idPacienteEdicao) {
-        await axios.put(`http://localhost:3000/pacientes/${idPacienteEdicao}`, dados);
+        await axios.put(`https://api.saudeaura.site/pacientes/${idPacienteEdicao}`, dados);
         setMensagem('✅ Registro atualizado!');
       } else {
-        const res = await axios.post('http://localhost:3000/pacientes', dados);
+        const res = await axios.post('https://api.saudeaura.site/pacientes', dados);
         setMensagem(`✅ Sucesso! Senha ${res.data.senha}`); 
         gerarPDFRecibo(res.data.senha, nome, dia, tipoTratamento);
       }
@@ -145,10 +145,10 @@ function App() {
     e.preventDefault();
     try {
       if (idEdicaoEvento) {
-        const res = await axios.put(`http://localhost:3000/eventos/${idEdicaoEvento}`, novoEvento);
+        const res = await axios.put(`https://api.saudeaura.site/eventos/${idEdicaoEvento}`, novoEvento);
         setMsgAdmin(res.data.mensagem);
       } else {
-        const res = await axios.post('http://localhost:3000/eventos', novoEvento);
+        const res = await axios.post('https://api.saudeaura.site/eventos', novoEvento);
         setMsgAdmin(res.data.mensagem);
       }
       setIdEdicaoEvento(null);
@@ -178,13 +178,30 @@ function App() {
   const pacientesFiltrados = listaPacientes.filter(p => p.nome.toLowerCase().includes(termoBusca.toLowerCase()) || p.senha_atendimento.toString() === termoBusca);
   const eventoAtual = listaEventos.find(e => e.id == eventoSelecionadoId);
 
-  if (!estaLogado) return (
+if (!estaLogado) return (
     <div className="container" style={{ maxWidth: '400px', marginTop: '100px', textAlign: 'center' }}>
       <h2>🔒 Cadastro de Atendimento</h2>
-      <form onSubmit={async (e) => { e.preventDefault(); try { const r = await axios.post('http://localhost:3000/login', { usuario, senha }); setEstaLogado(true); setPerfilUsuario(r.data.perfil); setNomeLogado(r.data.nome); } catch(e){ setErroLogin('Erro'); } }}>
+      <form onSubmit={async (e) => { 
+        e.preventDefault(); 
+        setErroLogin(''); // Limpa erros antigos
+        try { 
+          // O link agora está correto com HTTPS
+          const r = await axios.post('https://api.saudeaura.site/login', { usuario, senha }); 
+          setEstaLogado(true); 
+          setPerfilUsuario(r.data.perfil); 
+          setNomeLogado(r.data.nome); 
+        } catch(err) { 
+          setErroLogin('Erro ao entrar'); 
+          // Este ALERT vai aparecer na tela do seu celular para debug:
+          alert("LOG DE ERRO:\n" + (err.message) + "\nURL: " + (err.config?.url));
+        } 
+      }}>
         <input type="text" placeholder="Utilizador" onChange={e => setUsuario(e.target.value)} required />
         <input type="password" placeholder="Senha" onChange={e => setSenha(e.target.value)} required />
         <button type="submit">ENTRAR</button>
+        
+        {/* Mostra o erro visualmente na tela */}
+        {erroLogin && <p style={{ color: 'red', marginTop: '10px', fontWeight: 'bold' }}>{erroLogin}</p>}
       </form>
     </div>
   );
@@ -283,7 +300,7 @@ function App() {
                             const doc = new jsPDF(); const [imgLogo] = await carregarImagens(['/logo.png']);
                             desenharFichaNoDoc(doc, p, imgLogo); doc.save(`Ficha_${p.senha_atendimento}.pdf`);
                         }} style={{background:'#34495e', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px', marginRight:'5px'}} title="Imprimir Ficha">📄</button>
-                        <button onClick={async () => { if(confirm('Remover?')) { await axios.delete(`http://localhost:3000/pacientes/${p.id}`); buscarTudo(); } }} style={{background:'red', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}} title="Excluir">🗑️</button>
+                        <button onClick={async () => { if(confirm('Remover?')) { await axios.delete(`https://api.saudeaura.site/pacientes/${p.id}`); buscarTudo(); } }} style={{background:'red', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}} title="Excluir">🗑️</button>
                     </td>
                 </tr>
               ))}
@@ -338,7 +355,7 @@ function App() {
                   <span>{ev.nome} (D1: {ev.ocupadas_dia1}/{ev.vagas_dia1})</span>
                   <div style={{display:'flex', gap:'5px'}}>
                     <button onClick={() => prepararEdicaoEvento(ev)} style={{background:'#f1c40f', color:'black', border:'none', padding:'5px 10px', borderRadius:'4px'}}>✏️</button>
-                    <button onClick={async () => { if(confirm('Apagar Evento e Pacientes?')) { await axios.delete(`http://localhost:3000/eventos/${ev.id}`); buscarTudo(); } }} style={{background:'red', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}}>🗑️</button>
+                    <button onClick={async () => { if(confirm('Apagar Evento e Pacientes?')) { await axios.delete(`https://api.saudeaura.site/eventos/${ev.id}`); buscarTudo(); } }} style={{background:'red', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}}>🗑️</button>
                   </div>
                 </div>
               ))}
@@ -349,7 +366,7 @@ function App() {
           {subTelaConfig === 'usuarios' && (
             <div className="bloco">
               <h3>👥 Gestão de Utilizadores</h3>
-              <form onSubmit={async (e) => { e.preventDefault(); try { const r = await axios.post('http://localhost:3000/usuarios', novoUsu); setMsgAdmin(r.data.mensagem); buscarTudo(); } catch(e){ setMsgAdmin('Erro'); } }}>
+              <form onSubmit={async (e) => { e.preventDefault(); try { const r = await axios.post('https://api.saudeaura.site/usuarios', novoUsu); setMsgAdmin(r.data.mensagem); buscarTudo(); } catch(e){ setMsgAdmin('Erro'); } }}>
                 <input type="text" placeholder="Nome Completo" onChange={e => setNovoUsu({...novoUsu, nome: e.target.value})} required style={{marginBottom:'10px'}}/>
                 <input type="text" placeholder="Utilizador" onChange={e => setNovoUsu({...novoUsu, usuario: e.target.value})} required style={{marginBottom:'10px'}}/>
                 <input type="password" placeholder="Senha" onChange={e => setNovoUsu({...novoUsu, senha: e.target.value})} required style={{marginBottom:'10px'}}/>
@@ -358,7 +375,7 @@ function App() {
               </form>
               <h4 style={{marginTop:'20px'}}>Utilizadores Cadastrados:</h4>
               {listaUsuarios.map(u => (
-                <div key={u.id} style={{display:'flex', justifyContent:'space-between', padding:'10px', borderBottom:'1px solid #ddd'}}>{u.nome} ({u.perfil}) <button onClick={async () => { if(confirm('Remover?')) { await axios.delete(`http://localhost:3000/usuarios/${u.id}`); buscarTudo(); } }}>🗑️</button></div>
+                <div key={u.id} style={{display:'flex', justifyContent:'space-between', padding:'10px', borderBottom:'1px solid #ddd'}}>{u.nome} ({u.perfil}) <button onClick={async () => { if(confirm('Remover?')) { await axios.delete(`https://api.saudeaura.site/usuarios/${u.id}`); buscarTudo(); } }}>🗑️</button></div>
               ))}
             </div>
           )}

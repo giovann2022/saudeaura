@@ -183,24 +183,22 @@ if (!estaLogado) return (
       <h2>🔒 Cadastro de Atendimento</h2>
       <form onSubmit={async (e) => { 
         e.preventDefault(); 
-        setErroLogin(''); // Limpa erros antigos
+        setErroLogin(''); 
         try { 
-          // O link agora está correto com HTTPS
           const r = await axios.post('https://api.saudeaura.site/login', { usuario, senha }); 
           setEstaLogado(true); 
           setPerfilUsuario(r.data.perfil); 
           setNomeLogado(r.data.nome); 
         } catch(err) { 
-          setErroLogin('Erro ao entrar'); 
-          // Este ALERT vai aparecer na tela do seu celular para debug:
-          alert("LOG DE ERRO:\n" + (err.message) + "\nURL: " + (err.config?.url));
+          // Mantemos apenas a mensagem amigável na tela
+          setErroLogin('Usuário ou senha incorretos'); 
+          // O alert foi removido daqui!
         } 
       }}>
         <input type="text" placeholder="Utilizador" onChange={e => setUsuario(e.target.value)} required />
         <input type="password" placeholder="Senha" onChange={e => setSenha(e.target.value)} required />
         <button type="submit">ENTRAR</button>
         
-        {/* Mostra o erro visualmente na tela */}
         {erroLogin && <p style={{ color: 'red', marginTop: '10px', fontWeight: 'bold' }}>{erroLogin}</p>}
       </form>
     </div>

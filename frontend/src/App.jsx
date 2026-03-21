@@ -100,7 +100,7 @@ function App() {
     doc.setFontSize(10); doc.setFont(undefined, 'normal');
     doc.text(`NOME: ${p.nome.toUpperCase()}`, 20, 42);
     doc.text(`Nascimento: ${formatarDataBR(p.nascimento)} | Idade: ${p.idade} anos | Tel: ${p.telefone}`, 20, 50);
-    doc.text(`Morada: ${p.endereco}, ${p.numero} ${p.complemento || ''}`, 20, 58);
+    doc.text(`Endereço: ${p.endereco}, ${p.numero} ${p.complemento || ''}`, 20, 58);
     doc.text(`Bairro: ${p.bairro} | Cidade: ${p.cidade} - ${p.estado}`, 20, 66);
     
     doc.line(20, 70, 190, 70);
@@ -256,7 +256,7 @@ if (!estaLogado) return (
           </div>
 
           <div className="bloco">
-            <h4>Morada</h4>
+            <h4>Endereço</h4>
             <input type="text" placeholder="Rua / Avenida" value={rua} onChange={e => setRua(e.target.value)} required style={{marginBottom:'10px'}}/>
             <div className="linha" style={{marginBottom:'10px'}}>
                 <input type="text" placeholder="Nº" value={numero} onChange={e => setNumero(e.target.value)} required style={{width:'80px'}} />

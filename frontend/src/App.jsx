@@ -41,12 +41,16 @@ function App() {
 
   useEffect(() => { if (estaLogado) buscarTudo(); }, [estaLogado, telaAtual]);
 
-  // === PDF 1: COMPROVANTE DO PACIENTE (Mantido com Senha e Redes Sociais) ===
+// === PDF 1: COMPROVANTE DO PACIENTE ===
   const gerarPDFRecibo = async (senhaS, nomeP, diaE, tipoT) => {
     const ev = listaEventos.find(e => e.id == eventoSelecionadoId);
     if (!ev) return;
     const doc = new jsPDF();
     const dataR = diaE === 'Dia 1' ? formatarDataBR(ev.data_dia1) : formatarDataBR(ev.data_dia2);
+    
+    // 👇 ADICIONE ESTA LINHA ABAIXO (O que faltava!) 👇
+    const dataArquivo = dataR.replace(/\//g, '-'); 
+    
     const [imgLogo] = await carregarImagens(['/logo.png']);
     
     if (imgLogo) doc.addImage(imgLogo, 'PNG', 165, 10, 30, 30);
@@ -72,6 +76,7 @@ function App() {
     doc.text(`Instagram: ${ev.insta || '-'}  |  WhatsApp: ${ev.whats || '-'}`, 105, 270, { align: 'center' });
     doc.text(`E-mail: ${ev.email || '-'}  |  Site: ${ev.site || '-'}`, 105, 276, { align: 'center' });
     
+    // Agora o dataArquivo vai funcionar!
     doc.save(`Comprovantes_${dataArquivo}_Senha_${senhaS}.pdf`);
   }
 
@@ -87,7 +92,7 @@ function App() {
     doc.text(p.nome_evento.toUpperCase(), 105, 15, { align: 'center' });
     
     doc.setFontSize(11);
-    doc.text(`${p.tipo_tratamento.toUpperCase()} - PRONTUÁRIO (${dataAtendimento})`, 20, 25);
+    doc.text(`${p.tipo_tratamento.toUpperCase()} - PRONTUÁRIO (${dataAtendimento})`, 105, 25, { align: 'center' });
     
     doc.setLineWidth(0.5); doc.line(20, 35, 190, 35);
     

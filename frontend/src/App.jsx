@@ -72,7 +72,7 @@ function App() {
     doc.text(`Instagram: ${ev.insta || '-'}  |  WhatsApp: ${ev.whats || '-'}`, 105, 270, { align: 'center' });
     doc.text(`E-mail: ${ev.email || '-'}  |  Site: ${ev.site || '-'}`, 105, 276, { align: 'center' });
     
-    doc.save(`Comprovante_${senhaS}.pdf`);
+    doc.save(`Comprovantes_${dataArquivo}_Senha_${senhaS}.pdf`);
   }
 
   // === PDF 2: FICHA DO PRONTUÁRIO (Sem a Senha/Data da Impressão) ===
@@ -84,7 +84,7 @@ function App() {
     doc.setFont(undefined, 'bold');
     doc.text(`SENHA: ${p.senha_atendimento}`, 20, 33);
     doc.setFontSize(14); doc.setFont(undefined, 'bold');
-    doc.text(doc.splitTextToSize(p.nome_evento.toUpperCase(), 140), 20, 15);
+    doc.text(p.nome_evento.toUpperCase(), 105, 15, { align: 'center' });
     
     doc.setFontSize(11);
     doc.text(`${p.tipo_tratamento.toUpperCase()} - PRONTUÁRIO (${dataAtendimento})`, 20, 25);
@@ -275,39 +275,51 @@ if (!estaLogado) return (
         </form>
       )}
 
-      {/* ABA DE TRIAGEM */}
-      {telaAtual === 'admin' && (
-        <div className="tabela-container">
-          <div style={{display:'flex', justifyContent:'space-between', marginBottom:'20px'}}>
-            <input type="text" placeholder="🔍 Buscar Nome ou Senha..." value={termoBusca} onChange={e => setTermoBusca(e.target.value)} style={{padding:'10px', width:'300px'}} />
-            <button onClick={async () => { 
-                const doc = new jsPDF(); const [imgLogo] = await carregarImagens(['/logo.png']);
-                pacientesFiltrados.forEach((p, i) => { if(i>0) doc.addPage(); desenharFichaNoDoc(doc, p, imgLogo); });
-                doc.save('Fichas_Lote.pdf');
-            }} style={{background:'#2980b9', color:'white', padding:'10px 20px', border:'none', borderRadius:'5px', fontWeight:'bold'}}>🖨️ IMPRIMIR TODOS (LOTE)</button>
-          </div>
-          <table>
-            <thead><tr><th>Senha</th><th>Tipo</th><th>Paciente</th><th>Ações</th></tr></thead>
-            <tbody>
-              {pacientesFiltrados.map(p => (
-                <tr key={p.id}>
-                    <td><strong>{p.senha_atendimento}</strong></td>
-                    <td>{p.tipo_tratamento}</td>
-                    <td>{p.nome}</td>
-                    <td>
-                        <button onClick={() => prepararEdicaoPaciente(p)} style={{background:'#f1c40f', border:'none', padding:'5px 10px', borderRadius:'4px', marginRight:'5px'}} title="Editar">✏️</button>
-                        <button onClick={async () => {
-                            const doc = new jsPDF(); const [imgLogo] = await carregarImagens(['/logo.png']);
-                            desenharFichaNoDoc(doc, p, imgLogo); doc.save(`Ficha_${p.senha_atendimento}.pdf`);
-                        }} style={{background:'#34495e', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px', marginRight:'5px'}} title="Imprimir Ficha">📄</button>
-                        <button onClick={async () => { if(confirm('Remover?')) { await axios.delete(`https://api.saudeaura.site/pacientes/${p.id}`); buscarTudo(); } }} style={{background:'red', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}} title="Excluir">🗑️</button>
-                    </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+{/* ABA DE TRIAGEM */}
+{telaAtual === 'admin' && (
+  <div className="tabela-container">
+    <div style={{display:'flex', justifyContent:'space-between', marginBottom:'20px'}}>
+      <input type="text" placeholder="🔍 Buscar Nome ou Senha..." value={termoBusca} onChange={e => setTermoBusca(e.target.value)} style={{padding:'10px', width:'300px'}} />
+      <button onClick={async () => { 
+          const doc = new jsPDF(); const [imgLogo] = await carregarImagens(['/logo.png']);
+          pacientesFiltrados.forEach((p, i) => { if(i>0) doc.addPage(); desenharFichaNoDoc(doc, p, imgLogo); });
+          doc.save('Fichas_Lote.pdf');
+      }} style={{background:'#2980b9', color:'white', padding:'10px 20px', border:'none', borderRadius:'5px', fontWeight:'bold'}}>🖨️ IMPRIMIR TODOS (LOTE)</button>
+    </div>
+    <table>
+      <thead><tr><th>Senha</th><th>Tipo</th><th>Paciente</th><th>Ações</th></tr></thead>
+      <tbody>
+        {pacientesFiltrados.map(p => (
+          <tr key={p.id}>
+              <td><strong>{p.senha_atendimento}</strong></td>
+              <td>{p.tipo_tratamento}</td>
+              <td>{p.nome}</td>
+              <td>
+                  <button onClick={() => prepararEdicaoPaciente(p)} style={{background:'#f1c40f', border:'none', padding:'5px 10px', borderRadius:'4px', marginRight:'5px'}} title="Editar">✏️</button>
+                  
+                  {/* 👇 ESTE É O BOTÃO QUE FOI ALTERADO 👇 */}
+                  <button onClick={async () => {
+                      const doc = new jsPDF(); 
+                      const [imgLogo] = await carregarImagens(['/logo.png']);
+                      desenharFichaNoDoc(doc, p, imgLogo);
+                      
+                      // Lógica para pegar a data e o tipo (Cura ou Socorro)
+                      const dAtend = p.dia_atendimento === 'Dia 1' ? formatarDataBR(p.data_dia1) : formatarDataBR(p.data_dia2);
+                      const dataArquivo = dAtend.replace(/\//g, '-');
+                      const tipoResumido = p.tipo_tratamento.includes('Cura') ? 'Cura' : 'Socorro';
+                      
+                      // Nome: 21-03-2026_Senha_05_Cura.pdf
+                      doc.save(`${dataArquivo}_Senha_${p.senha_atendimento}_${tipoResumido}.pdf`);
+                  }} style={{background:'#34495e', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px', marginRight:'5px'}} title="Imprimir Ficha">📄</button>
+                  
+                  <button onClick={async () => { if(confirm('Remover?')) { await axios.delete(`https://api.saudeaura.site/pacientes/${p.id}`); buscarTudo(); } }} style={{background:'red', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}} title="Excluir">🗑️</button>
+              </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
 
       {/* ABA DE CONFIGURAÇÕES COMPLETAS */}
       {telaAtual === 'config' && (

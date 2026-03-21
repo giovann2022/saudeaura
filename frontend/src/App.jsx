@@ -80,9 +80,9 @@ function App() {
     const dataAtendimento = p.dia_atendimento === 'Dia 1' ? formatarDataBR(p.data_dia1) : formatarDataBR(p.data_dia2);
     
     if (imgLogo) { doc.addImage(imgLogo, 'PNG', 170, 8, 25, 25); }
-    doc.setFontSize(10);
+    doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
-    doc.text(`SENHA: ${p.senha_atendimento}`, 182.5, 35, { align: 'center' });
+    doc.text(`SENHA: ${p.senha_atendimento}`, 20, 33);
     doc.setFontSize(14); doc.setFont(undefined, 'bold');
     doc.text(doc.splitTextToSize(p.nome_evento.toUpperCase(), 140), 20, 15);
     

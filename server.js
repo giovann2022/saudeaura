@@ -6,7 +6,7 @@ require('dotenv').config();
 const app = express();
 const porta = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors()); // Isso libera para qualquer dispositivo testar
 app.use(express.json()); 
 
 app.get('/', (req, res) => res.send('🚀 API de Atendimento Ativa!'));

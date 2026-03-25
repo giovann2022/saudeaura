@@ -186,8 +186,12 @@ function App() {
   const eventoAtual = listaEventos.find(e => e.id == eventoSelecionadoId);
 
 if (!estaLogado) return (
-    <div className="container" style={{ maxWidth: '400px', marginTop: '100px', textAlign: 'center' }}>
-      <h2>🔒 Cadastro de Atendimento</h2>
+  <div className="app-wrapper auth-container">
+    <div className="card" style={{ maxWidth: '400px' }}>
+      <h2 className="card-header">
+        <span style={{ fontSize: '2rem', display: 'block', marginBottom: '10px' }}>🩺</span>
+        Cadastro de Atendimento
+      </h2>
       <form onSubmit={async (e) => { 
         e.preventDefault(); 
         setErroLogin(''); 
@@ -197,209 +201,390 @@ if (!estaLogado) return (
           setPerfilUsuario(r.data.perfil); 
           setNomeLogado(r.data.nome); 
         } catch(err) { 
-          // Mantemos apenas a mensagem amigável na tela
           setErroLogin('Usuário ou senha incorretos'); 
-          // O alert foi removido daqui!
         } 
       }}>
-        <input type="text" placeholder="Utilizador" onChange={e => setUsuario(e.target.value)} required />
-        <input type="password" placeholder="Senha" onChange={e => setSenha(e.target.value)} required />
-        <button type="submit">ENTRAR</button>
+        <div className="form-group">
+          <label>Utilizador</label>
+          <input type="text" placeholder="Digite seu usuário..." onChange={e => setUsuario(e.target.value)} required />
+        </div>
+        <div className="form-group">
+          <label>Senha</label>
+          <input type="password" placeholder="Digite sua senha..." onChange={e => setSenha(e.target.value)} required />
+        </div>
+        <button type="submit" className="btn-primary" style={{ marginTop: '10px' }}>ENTRAR</button>
         
-        {erroLogin && <p style={{ color: 'red', marginTop: '10px', fontWeight: 'bold' }}>{erroLogin}</p>}
+        {erroLogin && <div className="feedback-msg msg-error">⚠️ {erroLogin}</div>}
       </form>
     </div>
-  );
+  </div>
+);
 
-  return (
-    <div className="container" style={{ maxWidth: telaAtual === 'admin' ? '1100px' : '650px' }}>
-      <div className="menu-topo" style={{display:'flex', gap:'10px', justifyContent:'center', marginBottom:'20px'}}>
-        <button onClick={() => { setTelaAtual('cadastro'); setIdPacienteEdicao(null); }} className={telaAtual==='cadastro'?'ativo':''}>📝 Cadastro</button>
-        <button onClick={() => setTelaAtual('admin')} className={telaAtual==='admin'?'ativo':''}>📋 Triagem</button>
-        {perfilUsuario === 'admin' && <button onClick={() => setTelaAtual('config')} className={telaAtual==='config'?'ativo':''}>⚙️ Config</button>}
-        <button onClick={() => setEstaLogado(false)} style={{background:'#e74c3c', color:'white'}}>Sair</button>
+return (
+  <div className="app-wrapper">
+    <div className={`main-container ${telaAtual === 'admin' || telaAtual === 'config' ? 'config-view' : ''}`}>
+      <div className="top-menu">
+        <button onClick={() => { setTelaAtual('cadastro'); setIdPacienteEdicao(null); }} className={`menu-btn ${telaAtual==='cadastro'?'active':''}`}>📝 Cadastro</button>
+        <button onClick={() => setTelaAtual('admin')} className={`menu-btn ${telaAtual==='admin'?'active':''}`}>📋 Triagem</button>
+        {perfilUsuario === 'admin' && <button onClick={() => setTelaAtual('config')} className={`menu-btn ${telaAtual==='config'?'active':''}`}>⚙️ Configurações</button>}
+        <button onClick={() => setEstaLogado(false)} className="menu-btn btn-logout">🚪 Sair</button>
       </div>
 
-      {/* ABA DE CADASTRO */}
       {telaAtual === 'cadastro' && (
-        <form onSubmit={cadastrarPaciente}>
-          <h2 style={{textAlign:'center'}}>{idPacienteEdicao ? '✏️ Editar Registro' : 'Novo Registro'}</h2>
-          <div className="bloco">
-            <select value={eventoSelecionadoId} onChange={e => setEventoSelecionadoId(e.target.value)} required>
-                {listaEventos.map(ev => <option key={ev.id} value={ev.id}>{ev.nome}</option>)}
-            </select>
-          </div>
+        <div className="card">
+          <h2 className="card-header">{idPacienteEdicao ? '✏️ Editar Registro' : 'Novo Registro'}</h2>
+          
+          <form onSubmit={cadastrarPaciente}>
+            <div className="section-block">
+              <div className="form-group">
+                <label>Selecione o Evento</label>
+                <select value={eventoSelecionadoId} onChange={e => setEventoSelecionadoId(e.target.value)} required>
+                  {listaEventos.map(ev => <option key={ev.id} value={ev.id}>{ev.nome}</option>)}
+                </select>
+              </div>
 
-          {eventoAtual && (
-             <div className="bloco" style={{background:'#f0f8ff', textAlign:'center', border:'1px solid #bde0fe', padding:'10px'}}>
-                Vagas Disponíveis: <strong>{dia === 'Dia 1' ? (eventoAtual.vagas_dia1 - eventoAtual.ocupadas_dia1) : (eventoAtual.vagas_dia2 - eventoAtual.ocupadas_dia2)}</strong>
-             </div>
-          )}
+              {eventoAtual && (
+                <div className="info-block">
+                  Vagas Disponíveis: <strong>{dia === 'Dia 1' ? (eventoAtual.vagas_dia1 - eventoAtual.ocupadas_dia1) : (eventoAtual.vagas_dia2 - eventoAtual.ocupadas_dia2)}</strong>
+                </div>
+              )}
 
-          <div className="linha">
-            <select value={tipoTratamento} onChange={e => setTipoTratamento(e.target.value)} style={{flex:1}}>
-                <option value="Socorro Espiritual">Socorro Espiritual</option>
-                <option value="Cura Espiritual">Cura Espiritual</option>
-            </select>
-            <select value={dia} onChange={e => setDia(e.target.value)} style={{flex:1}}>
-                <option value="Dia 1">Dia 1 - {eventoAtual ? formatarDataBR(eventoAtual.data_dia1) : ''}</option>
-                <option value="Dia 2">Dia 2 - {eventoAtual ? formatarDataBR(eventoAtual.data_dia2) : ''}</option>
-            </select>
-          </div>
-
-          <div className="bloco">
-            <input type="text" placeholder="Nome Completo" value={nome} onChange={e => setNome(e.target.value)} required />
-            <div className="linha" style={{marginTop:'10px'}}>
-                <input type="date" value={nascimento} onChange={e => { setNascimento(e.target.value); setIdade(new Date().getFullYear() - new Date(e.target.value).getFullYear()); }} required />
-                <input type="text" placeholder="Telefone" value={telefone} onChange={e => setTelefone(e.target.value)} required />
+              <div className="form-row">
+                <div className="form-col">
+                  <label>Tipo de Tratamento</label>
+                  <select value={tipoTratamento} onChange={e => setTipoTratamento(e.target.value)}>
+                    <option value="Socorro Espiritual">Socorro Espiritual</option>
+                    <option value="Cura Espiritual">Cura Espiritual</option>
+                  </select>
+                </div>
+                <div className="form-col">
+                  <label>Dia do Atendimento</label>
+                  <select value={dia} onChange={e => setDia(e.target.value)}>
+                    <option value="Dia 1">Dia 1 - {eventoAtual ? formatarDataBR(eventoAtual.data_dia1) : ''}</option>
+                    <option value="Dia 2">Dia 2 - {eventoAtual ? formatarDataBR(eventoAtual.data_dia2) : ''}</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="bloco">
-            <h4>Endereço</h4>
-            <input type="text" placeholder="Rua / Avenida" value={rua} onChange={e => setRua(e.target.value)} required style={{marginBottom:'10px'}}/>
-            <div className="linha" style={{marginBottom:'10px'}}>
-                <input type="text" placeholder="Nº" value={numero} onChange={e => setNumero(e.target.value)} required style={{width:'80px'}} />
-                <input type="text" placeholder="Compl." value={complemento} onChange={e => setComplemento(e.target.value)} style={{flex:1}} />
-                <input type="text" placeholder="Bairro" value={bairro} onChange={e => setBairro(e.target.value)} required style={{flex:1}} />
+            <div className="section-block">
+              <h3 className="section-title">Dados Pessoais</h3>
+              <div className="form-group">
+                <label>Nome Completo</label>
+                <input type="text" placeholder="Nome completo do paciente" value={nome} onChange={e => setNome(e.target.value)} required />
+              </div>
+              
+              <div className="form-row">
+                <div className="form-col">
+                  <label>Data de Nascimento</label>
+                  <input type="date" value={nascimento} onChange={e => { setNascimento(e.target.value); setIdade(new Date().getFullYear() - new Date(e.target.value).getFullYear()); }} required />
+                </div>
+                <div className="form-col">
+                  <label>Telefone</label>
+                  <input type="text" placeholder="(DD) 99999-9999" value={telefone} onChange={e => setTelefone(e.target.value)} required />
+                </div>
+              </div>
             </div>
-            <div className="linha">
-                <input type="text" placeholder="Cidade" value={cidade} onChange={e => setCidade(e.target.value)} required style={{flex:1}} />
-                <input type="text" placeholder="UF" value={estado} onChange={e => setEstado(e.target.value)} maxLength="2" required style={{width:'50px'}} />
-            </div>
-          </div>
 
-          <div className="bloco">
-            <input type="text" placeholder="Queixa 1" value={queixa1} onChange={e => setQueixa1(e.target.value)} required />
-            {tipoTratamento === 'Cura Espiritual' && <><input type="text" placeholder="Queixa 2" value={queixa2} onChange={e => setQueixa2(e.target.value)} style={{marginTop:'10px' }}/><input type="text" placeholder="Queixa 3" value={queixa3} onChange={e => setQueixa3(e.target.value)} style={{marginTop:'10px' }}/></>}
-          </div>
-          <button type="submit" style={{background: idPacienteEdicao ? '#2980b9' : '#27ae60', color:'white', padding:'15px', fontWeight:'bold'}}>
-              {idPacienteEdicao ? 'ATUALIZAR REGISTRO' : 'SALVAR E IMPRIMIR'}
-          </button>
-          {mensagem && <p style={{textAlign:'center', fontWeight:'bold', marginTop:'10px', color: mensagem.includes('🚫')?'red':'green'}}>{mensagem}</p>}
-        </form>
+            <div className="section-block">
+              <h3 className="section-title">Endereço</h3>
+              <div className="form-group">
+                <label>Rua / Avenida</label>
+                <input type="text" placeholder="Endereço completo" value={rua} onChange={e => setRua(e.target.value)} required />
+              </div>
+              
+              <div className="form-row">
+                <div className="form-col-small">
+                  <label>Número</label>
+                  <input type="text" placeholder="Nº" value={numero} onChange={e => setNumero(e.target.value)} required />
+                </div>
+                <div className="form-col">
+                  <label>Complemento</label>
+                  <input type="text" placeholder="Casa, Apto, Bloco..." value={complemento} onChange={e => setComplemento(e.target.value)} />
+                </div>
+                <div className="form-col">
+                  <label>Bairro</label>
+                  <input type="text" placeholder="Bairro" value={bairro} onChange={e => setBairro(e.target.value)} required />
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-col">
+                  <label>Cidade</label>
+                  <input type="text" placeholder="Nome da cidade" value={cidade} onChange={e => setCidade(e.target.value)} required />
+                </div>
+                <div className="form-col-small">
+                  <label>UF</label>
+                  <input type="text" placeholder="UF" value={estado} onChange={e => setEstado(e.target.value)} maxLength="2" required />
+                </div>
+              </div>
+            </div>
+
+            <div className="section-block">
+              <h3 className="section-title">Atendimento</h3>
+              <div className="form-group">
+                <label>Queixa Principal</label>
+                <input type="text" placeholder="Relate a queixa principal" value={queixa1} onChange={e => setQueixa1(e.target.value)} required />
+              </div>
+              
+              {tipoTratamento === 'Cura Espiritual' && (
+                <>
+                  <div className="form-group">
+                    <label>Queixa 2 (Opcional)</label>
+                    <input type="text" placeholder="Segunda queixa..." value={queixa2} onChange={e => setQueixa2(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Queixa 3 (Opcional)</label>
+                    <input type="text" placeholder="Terceira queixa..." value={queixa3} onChange={e => setQueixa3(e.target.value)} />
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <button type="submit" className={idPacienteEdicao ? 'btn-secondary btn-primary' : 'btn-primary'} style={{ padding: '15px' }}>
+              {idPacienteEdicao ? 'ATUALIZAR REGISTRO' : 'SALVAR E IMPRIMIR SENHA'}
+            </button>
+            
+            {mensagem && (
+              <div className={`feedback-msg ${mensagem.includes('🚫') || mensagem.includes('Erro') ? 'msg-error' : (mensagem.includes('Processando') ? 'msg-processing' : 'msg-success')}`}>
+                {mensagem}
+              </div>
+            )}
+          </form>
+        </div>
       )}
 
-{/* ABA DE TRIAGEM */}
-{telaAtual === 'admin' && (
-  <div className="tabela-container">
-    <div style={{display:'flex', justifyContent:'space-between', marginBottom:'20px'}}>
-      <input type="text" placeholder="🔍 Buscar Nome ou Senha..." value={termoBusca} onChange={e => setTermoBusca(e.target.value)} style={{padding:'10px', width:'300px'}} />
-      <button onClick={async () => { 
-          const doc = new jsPDF(); const [imgLogo] = await carregarImagens(['/logo.png']);
-          pacientesFiltrados.forEach((p, i) => { if(i>0) doc.addPage(); desenharFichaNoDoc(doc, p, imgLogo); });
-          doc.save('Fichas_Lote.pdf');
-      }} style={{background:'#2980b9', color:'white', padding:'10px 20px', border:'none', borderRadius:'5px', fontWeight:'bold'}}>🖨️ IMPRIMIR TODOS (LOTE)</button>
-    </div>
-    <table>
-      <thead><tr><th>Senha</th><th>Tipo</th><th>Paciente</th><th>Ações</th></tr></thead>
-      <tbody>
-        {pacientesFiltrados.map(p => (
-          <tr key={p.id}>
-              <td><strong>{p.senha_atendimento}</strong></td>
-              <td>{p.tipo_tratamento}</td>
-              <td>{p.nome}</td>
-              <td>
-                  <button onClick={() => prepararEdicaoPaciente(p)} style={{background:'#f1c40f', border:'none', padding:'5px 10px', borderRadius:'4px', marginRight:'5px'}} title="Editar">✏️</button>
-                  
-                  {/* 👇 ESTE É O BOTÃO QUE FOI ALTERADO 👇 */}
-                  <button onClick={async () => {
-                      const doc = new jsPDF(); 
-                      const [imgLogo] = await carregarImagens(['/logo.png']);
-                      desenharFichaNoDoc(doc, p, imgLogo);
-                      
-                      // Lógica para pegar a data e o tipo (Cura ou Socorro)
-                      const dAtend = p.dia_atendimento === 'Dia 1' ? formatarDataBR(p.data_dia1) : formatarDataBR(p.data_dia2);
-                      const dataArquivo = dAtend.replace(/\//g, '-');
-                      const tipoResumido = p.tipo_tratamento.includes('Cura') ? 'Cura' : 'Socorro';
-                      
-                      // Nome: 21-03-2026_Senha_05_Cura.pdf
-                      doc.save(`${dataArquivo}_Senha_${p.senha_atendimento}_${tipoResumido}.pdf`);
-                  }} style={{background:'#34495e', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px', marginRight:'5px'}} title="Imprimir Ficha">📄</button>
-                  
-                  <button onClick={async () => { if(confirm('Remover?')) { await axios.delete(`https://api.saudeaura.site/pacientes/${p.id}`); buscarTudo(); } }} style={{background:'red', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}} title="Excluir">🗑️</button>
-              </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-)}
-
-      {/* ABA DE CONFIGURAÇÕES COMPLETAS */}
-      {telaAtual === 'config' && (
-        <>
-          <div style={{display:'flex', justifyContent:'center', gap:'10px', marginBottom:'20px'}}>
-            <button onClick={() => setSubTelaConfig('eventos')} className={subTelaConfig === 'eventos' ? 'ativo' : ''}>📅 Eventos</button>
-            <button onClick={() => setSubTelaConfig('usuarios')} className={subTelaConfig === 'usuarios' ? 'ativo' : ''}>👥 Utilizadores</button>
+      {telaAtual === 'admin' && (
+        <div className="table-container">
+          <div className="table-header-controls">
+            <input 
+              type="text" 
+              className="search-input" 
+              placeholder="🔍 Buscar por Nome ou Senha..." 
+              value={termoBusca} 
+              onChange={e => setTermoBusca(e.target.value)} 
+            />
+            <button className="btn-secondary" onClick={async () => { 
+                const doc = new jsPDF(); const [imgLogo] = await carregarImagens(['/logo.png']);
+                pacientesFiltrados.forEach((p, i) => { if(i>0) doc.addPage(); desenharFichaNoDoc(doc, p, imgLogo); });
+                doc.save('Fichas_Lote.pdf');
+            }}>🖨️ IMPRIMIR TODOS (LOTE)</button>
           </div>
           
-          {/* SubAba: Eventos */}
+          <div className="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Senha</th>
+                  <th>Tipo</th>
+                  <th>Paciente</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pacientesFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum paciente encontrado.</td>
+                  </tr>
+                ) : (
+                  pacientesFiltrados.map(p => (
+                    <tr key={p.id}>
+                        <td><strong>{p.senha_atendimento}</strong></td>
+                        <td>{p.tipo_tratamento}</td>
+                        <td>{p.nome}</td>
+                        <td className="action-buttons">
+                            <button className="btn-action btn-edit" onClick={() => prepararEdicaoPaciente(p)} title="Editar Ficha">✏️</button>
+                            
+                            <button className="btn-action btn-print" onClick={async () => {
+                                const doc = new jsPDF(); 
+                                const [imgLogo] = await carregarImagens(['/logo.png']);
+                                desenharFichaNoDoc(doc, p, imgLogo);
+                                
+                                const dAtend = p.dia_atendimento === 'Dia 1' ? formatarDataBR(p.data_dia1) : formatarDataBR(p.data_dia2);
+                                const dataArquivo = dAtend.replace(/\//g, '-');
+                                const tipoResumido = p.tipo_tratamento.includes('Cura') ? 'Cura' : 'Socorro';
+                                
+                                doc.save(`${dataArquivo}_Senha_${p.senha_atendimento}_${tipoResumido}.pdf`);
+                            }} title="Imprimir Prontuário">📄</button>
+                            
+                            <button className="btn-action btn-delete" onClick={async () => { if(confirm('Remover paciente definitivamente?')) { await axios.delete(`https://api.saudeaura.site/pacientes/${p.id}`); buscarTudo(); } }} title="Excluir Registro">🗑️</button>
+                        </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {telaAtual === 'config' && (
+        <div className="card">
+          <div className="subtabs">
+            <button onClick={() => setSubTelaConfig('eventos')} className={`subtab-btn ${subTelaConfig === 'eventos' ? 'active' : ''}`}>📅 Eventos</button>
+            <button onClick={() => setSubTelaConfig('usuarios')} className={`subtab-btn ${subTelaConfig === 'usuarios' ? 'active' : ''}`}>👥 Utilizadores</button>
+          </div>
+          
           {subTelaConfig === 'eventos' && (
-            <div className="bloco">
-              <h3>{idEdicaoEvento ? '✏️ Editar Evento' : '⚙️ Criar Novo Evento'}</h3>
-              <form onSubmit={lidarComEvento}>
-                <input type="text" placeholder="Nome do Evento" value={novoEvento.nome} onChange={e => setNovoEvento({...novoEvento, nome: e.target.value})} required style={{marginBottom:'10px'}}/>
-                <div className="linha">
-                    <input type="date" value={novoEvento.data_dia1} onChange={e => setNovoEvento({...novoEvento, data_dia1: e.target.value})} required />
-                    <input type="number" placeholder="Vagas D1" value={novoEvento.vagas_dia1} onChange={e => setNovoEvento({...novoEvento, vagas_dia1: e.target.value})} required />
-                </div>
-                <div className="linha" style={{marginTop:'10px'}}>
-                    <input type="date" value={novoEvento.data_dia2} onChange={e => setNovoEvento({...novoEvento, data_dia2: e.target.value})} required />
-                    <input type="number" placeholder="Vagas D2" value={novoEvento.vagas_dia2} onChange={e => setNovoEvento({...novoEvento, vagas_dia2: e.target.value})} required />
-                </div>
-                <div className="linha" style={{marginTop:'15px'}}>
-                    <input type="text" placeholder="Instagram" value={novoEvento.insta} onChange={e => setNovoEvento({...novoEvento, insta: e.target.value})} />
-                    <input type="text" placeholder="WhatsApp" value={novoEvento.whats} onChange={e => setNovoEvento({...novoEvento, whats: e.target.value})} />
-                </div>
-                <div className="linha" style={{marginTop:'10px'}}>
-                    <input type="text" placeholder="E-mail" value={novoEvento.email} onChange={e => setNovoEvento({...novoEvento, email: e.target.value})} />
-                    <input type="text" placeholder="Site" value={novoEvento.site} onChange={e => setNovoEvento({...novoEvento, site: e.target.value})} />
-                </div>
-                <input type="text" placeholder="Local de Atendimento" value={novoEvento.local_atendimento} onChange={e => setNovoEvento({...novoEvento, local_atendimento: e.target.value})} required style={{marginTop:'10px'}}/>
-                <textarea placeholder="Instruções para o PDF" value={novoEvento.instrucoes_pdf} onChange={e => setNovoEvento({...novoEvento, instrucoes_pdf: e.target.value})} rows="4" required style={{width:'100%', marginTop:'10px'}} />
-                
-                <div style={{display:'flex', gap:'10px', marginTop:'15px'}}>
-                    <button type="submit" style={{flex:1, background: idEdicaoEvento ? '#2980b9' : '#d35400', color:'white'}}>{idEdicaoEvento ? 'ATUALIZAR EVENTO' : 'ATIVAR NOVO EVENTO'}</button>
-                    {idEdicaoEvento && <button type="button" onClick={() => { setIdEdicaoEvento(null); setNovoEvento({ nome: '', data_dia1: '', vagas_dia1: 200, data_dia2: '', vagas_dia2: 200, local_atendimento: '', instrucoes_pdf: '', insta: '', whats: '', email: '', site: '' }); }} style={{background:'#eee', color:'black'}}>CANCELAR</button>}
-                </div>
-              </form>
-              {msgAdmin && <p style={{textAlign:'center', fontWeight:'bold', marginTop:'15px', color: msgAdmin.includes('✅')?'green':'red'}}>{msgAdmin}</p>}
-              
-              <h4 style={{marginTop:'20px'}}>Eventos Atuais:</h4>
-              {listaEventos.map(ev => (
-                <div key={ev.id} style={{display:'flex', justifyContent:'space-between', padding:'10px', borderBottom:'1px solid #ddd', alignItems:'center'}}>
-                  <span>{ev.nome} (D1: {ev.ocupadas_dia1}/{ev.vagas_dia1})</span>
-                  <div style={{display:'flex', gap:'5px'}}>
-                    <button onClick={() => prepararEdicaoEvento(ev)} style={{background:'#f1c40f', color:'black', border:'none', padding:'5px 10px', borderRadius:'4px'}}>✏️</button>
-                    <button onClick={async () => { if(confirm('Apagar Evento e Pacientes?')) { await axios.delete(`https://api.saudeaura.site/eventos/${ev.id}`); buscarTudo(); } }} style={{background:'red', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}}>🗑️</button>
+            <div>
+              <div className="section-block">
+                <h3 className="section-title">{idEdicaoEvento ? '✏️ Editar Evento' : '✨ Criar Novo Evento'}</h3>
+                <form onSubmit={lidarComEvento}>
+                  <div className="form-group">
+                    <label>Nome do Evento</label>
+                    <input type="text" placeholder="Ex: Caminho da Cura - Março/2026" value={novoEvento.nome} onChange={e => setNovoEvento({...novoEvento, nome: e.target.value})} required />
                   </div>
-                </div>
-              ))}
+                  
+                  <div className="form-row">
+                      <div className="form-col">
+                        <label>Data Dia 1</label>
+                        <input type="date" value={novoEvento.data_dia1} onChange={e => setNovoEvento({...novoEvento, data_dia1: e.target.value})} required />
+                      </div>
+                      <div className="form-col-small">
+                        <label>Vagas D1</label>
+                        <input type="number" placeholder="Qtd" value={novoEvento.vagas_dia1} onChange={e => setNovoEvento({...novoEvento, vagas_dia1: e.target.value})} required />
+                      </div>
+                  </div>
+                  
+                  <div className="form-row">
+                      <div className="form-col">
+                        <label>Data Dia 2</label>
+                        <input type="date" value={novoEvento.data_dia2} onChange={e => setNovoEvento({...novoEvento, data_dia2: e.target.value})} required />
+                      </div>
+                      <div className="form-col-small">
+                        <label>Vagas D2</label>
+                        <input type="number" placeholder="Qtd" value={novoEvento.vagas_dia2} onChange={e => setNovoEvento({...novoEvento, vagas_dia2: e.target.value})} required />
+                      </div>
+                  </div>
+                  
+                  <div className="form-row">
+                      <div className="form-col">
+                        <label>Instagram</label>
+                        <input type="text" placeholder="@seu.insta" value={novoEvento.insta} onChange={e => setNovoEvento({...novoEvento, insta: e.target.value})} />
+                      </div>
+                      <div className="form-col">
+                        <label>WhatsApp</label>
+                        <input type="text" placeholder="(DD) 99999-9999" value={novoEvento.whats} onChange={e => setNovoEvento({...novoEvento, whats: e.target.value})} />
+                      </div>
+                  </div>
+                  
+                  <div className="form-row">
+                      <div className="form-col">
+                        <label>E-mail Contato</label>
+                        <input type="text" placeholder="email@dominio.com" value={novoEvento.email} onChange={e => setNovoEvento({...novoEvento, email: e.target.value})} />
+                      </div>
+                      <div className="form-col">
+                        <label>Site / Link</label>
+                        <input type="text" placeholder="www.site.com" value={novoEvento.site} onChange={e => setNovoEvento({...novoEvento, site: e.target.value})} />
+                      </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Localização (Para o PDF)</label>
+                    <input type="text" placeholder="Logradouro completo..." value={novoEvento.local_atendimento} onChange={e => setNovoEvento({...novoEvento, local_atendimento: e.target.value})} required />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>Instruções Importantes (Para o PDF)</label>
+                    <textarea placeholder="Ex: Traga RG, não atrase..." value={novoEvento.instrucoes_pdf} onChange={e => setNovoEvento({...novoEvento, instrucoes_pdf: e.target.value})} rows="4" required />
+                  </div>
+                  
+                  <div className="form-row">
+                      <div className="form-col">
+                        <button type="submit" className={idEdicaoEvento ? 'btn-secondary btn-primary' : 'btn-primary'}>{idEdicaoEvento ? 'ATUALIZAR EVENTO' : 'ATIVAR NOVO EVENTO'}</button>
+                      </div>
+                      {idEdicaoEvento && (
+                        <div className="form-col">
+                          <button type="button" className="btn-outline" onClick={() => { setIdEdicaoEvento(null); setNovoEvento({ nome: '', data_dia1: '', vagas_dia1: 200, data_dia2: '', vagas_dia2: 200, local_atendimento: '', instrucoes_pdf: '', insta: '', whats: '', email: '', site: '' }); }}>CANCELAR EDIÇÃO</button>
+                        </div>
+                      )}
+                  </div>
+                </form>
+                
+                {msgAdmin && (
+                  <div className={`feedback-msg ${msgAdmin.includes('✅') ? 'msg-success' : 'msg-error'}`}>
+                    {msgAdmin}
+                  </div>
+                )}
+              </div>
+              
+              <h3 className="section-title">Eventos Ativos</h3>
+              <div className="list-container">
+                {listaEventos.map(ev => (
+                  <div key={ev.id} className="list-item">
+                    <div className="list-item-content">
+                      <span className="list-item-title">{ev.nome}</span>
+                      <span className="list-item-subtitle">Ocupação Dia 1: {ev.ocupadas_dia1}/{ev.vagas_dia1} | Dia 2: {ev.ocupadas_dia2}/{ev.vagas_dia2}</span>
+                    </div>
+                    <div className="action-buttons">
+                      <button className="btn-action btn-edit" title="Editar Evento" onClick={() => prepararEdicaoEvento(ev)}>✏️</button>
+                      <button className="btn-action btn-delete" title="Apagar Definitivamente" onClick={async () => { if(confirm('Apagar Evento e Pacientes? Cuidado, ação irreversível!')) { await axios.delete(`https://api.saudeaura.site/eventos/${ev.id}`); buscarTudo(); } }}>🗑️</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* SubAba: Utilizadores */}
           {subTelaConfig === 'usuarios' && (
-            <div className="bloco">
-              <h3>👥 Gestão de Utilizadores</h3>
-              <form onSubmit={async (e) => { e.preventDefault(); try { const r = await axios.post('https://api.saudeaura.site/usuarios', novoUsu); setMsgAdmin(r.data.mensagem); buscarTudo(); } catch(e){ setMsgAdmin('Erro'); } }}>
-                <input type="text" placeholder="Nome Completo" onChange={e => setNovoUsu({...novoUsu, nome: e.target.value})} required style={{marginBottom:'10px'}}/>
-                <input type="text" placeholder="Utilizador" onChange={e => setNovoUsu({...novoUsu, usuario: e.target.value})} required style={{marginBottom:'10px'}}/>
-                <input type="password" placeholder="Senha" onChange={e => setNovoUsu({...novoUsu, senha: e.target.value})} required style={{marginBottom:'10px'}}/>
-                <select value={novoUsu.perfil} onChange={e => setNovoUsu({...novoUsu, perfil: e.target.value})} style={{width:'100%', padding:'10px'}}><option value="voluntario">Voluntário</option><option value="admin">Administrador</option></select>
-                <button type="submit" style={{background:'#2c3e50', color:'white', marginTop:'10px'}}>CRIAR ACESSO</button>
-              </form>
-              <h4 style={{marginTop:'20px'}}>Utilizadores Cadastrados:</h4>
-              {listaUsuarios.map(u => (
-                <div key={u.id} style={{display:'flex', justifyContent:'space-between', padding:'10px', borderBottom:'1px solid #ddd'}}>{u.nome} ({u.perfil}) <button onClick={async () => { if(confirm('Remover?')) { await axios.delete(`https://api.saudeaura.site/usuarios/${u.id}`); buscarTudo(); } }}>🗑️</button></div>
-              ))}
+            <div>
+              <div className="section-block">
+                <h3 className="section-title">👤 Adicionar Novo Utilizador</h3>
+                <form onSubmit={async (e) => { e.preventDefault(); try { const r = await axios.post('https://api.saudeaura.site/usuarios', novoUsu); setMsgAdmin(r.data.mensagem); buscarTudo(); } catch(e){ setMsgAdmin('Erro'); } }}>
+                  <div className="form-row">
+                    <div className="form-col">
+                      <label>Nome Completo</label>
+                      <input type="text" placeholder="Ex: João Silva" onChange={e => setNovoUsu({...novoUsu, nome: e.target.value})} required />
+                    </div>
+                    <div className="form-col">
+                      <label>Login (Utilizador)</label>
+                      <input type="text" placeholder="joaosilva" onChange={e => setNovoUsu({...novoUsu, usuario: e.target.value})} required />
+                    </div>
+                  </div>
+                  
+                  <div className="form-row">
+                    <div className="form-col">
+                      <label>Senha</label>
+                      <input type="password" placeholder="***" onChange={e => setNovoUsu({...novoUsu, senha: e.target.value})} required />
+                    </div>
+                    <div className="form-col">
+                      <label>Perfil de Acesso</label>
+                      <select value={novoUsu.perfil} onChange={e => setNovoUsu({...novoUsu, perfil: e.target.value})}>
+                        <option value="voluntario">Voluntário (Cadastro, Triagem)</option>
+                        <option value="admin">Administrador (Total)</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <button type="submit" className="btn-primary" style={{ marginTop: '10px' }}>CRIAR ACESSO</button>
+                </form>
+
+                {msgAdmin && (
+                  <div className={`feedback-msg ${msgAdmin.includes('Criado') || msgAdmin.includes('Sucesso') || msgAdmin.includes('✅') ? 'msg-success' : 'msg-error'}`}>
+                    {msgAdmin}
+                  </div>
+                )}
+              </div>
+
+              <h3 className="section-title">Contas Cadastradas</h3>
+              <div className="list-container">
+                {listaUsuarios.map(u => (
+                  <div key={u.id} className="list-item">
+                    <div className="list-item-content">
+                      <span className="list-item-title">{u.nome} <span style={{fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-muted)'}}>({u.usuario})</span></span>
+                      <span className="list-item-subtitle">Nível: <strong>{u.perfil}</strong></span>
+                    </div>
+                    <button className="btn-action btn-delete" title="Remover Utilizador" onClick={async () => { if(confirm(`Remover acesso de ${u.nome}?`)) { await axios.delete(`https://api.saudeaura.site/usuarios/${u.id}`); buscarTudo(); } }}>🗑️</button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
-  )
+  </div>
+);
 }
 
 export default App

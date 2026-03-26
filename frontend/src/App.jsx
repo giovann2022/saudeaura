@@ -4,6 +4,7 @@ import './App.css';
 
 // Pages
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import Cadastro from './pages/Cadastro';
 import Triagem from './pages/Triagem';
 import Configuracoes from './pages/Configuracoes';
@@ -31,6 +32,10 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           
+          <Route path="/dashboard" element={
+            <RequireAuth><Dashboard /></RequireAuth>
+          } />
+          
           <Route path="/cadastro" element={
             <RequireAuth><Cadastro /></RequireAuth>
           } />
@@ -44,7 +49,7 @@ function App() {
           } />
           
           {/* Default redirect */}
-          <Route path="*" element={<Navigate to="/cadastro" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>
     </>

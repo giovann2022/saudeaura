@@ -1,17 +1,80 @@
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
 const porta = process.env.PORT || 3000;
+const SECRET_KEY = process.env.JWT_SECRET || 'chave_super_secreta_saudeaura'; // In prod, rely on env
 
-app.use(cors()); // Isso libera para qualquer dispositivo testar
+app.use(cors()); 
 app.use(express.json()); 
 
-app.get('/', (req, res) => res.send('🚀 API de Atendimento Ativa!'));
+app.get('/', (req, res) => res.send('🚀 API de Atendimento Ativa e Protegida!'));
 
-// === REPARAÇÃO DE BANCO ===
+// Middleware de Autenticação JWT
+const verificarToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Formato: Bearer <token>
+    
+    if (!token) return res.status(401).json({ erro: 'Acesso negado. Token não fornecido.' });
+    
+    jwt.verify(token, SECRET_KEY, (err, user) => {
+        if (err) return res.status(403).json({ erro: 'Token inválido ou expirado.' });
+        req.user = user;
+        next();
+    });
+};
+
+// Autenticação (Login Aberto)
+app.post('/login', async (req, res) => {
+    const { usuario, senha } = req.body;
+    try {
+        const r = await pool.query('SELECT id, nome, senha, perfil FROM usuarios WHERE usuario = $1', [usuario]);
+        if (r.rows.length === 0) return res.status(401).json({ erro: 'Utilizador não encontrado' });
+        
+        const user = r.rows[0];
+        
+        // Proteção retro-compatível: se a senha não estiver cryptada (antigas de texte limp) assume-se como limpa
+        let senhaCorreta = false;
+        if (!user.senha.startsWith('$')) {
+            senhaCorreta = (senha === user.senha);
+        } else {
+            senhaCorreta = await bcrypt.compare(senha, user.senha);
+        }
+        
+        if (senhaCorreta) {
+            // Gerar Token
+            const token = jwt.sign({ id: user.id, perfil: user.perfil, nome: user.nome }, SECRET_KEY, { expiresIn: '12h' });
+            res.json({ sucesso: true, token, perfil: user.perfil, nome: user.nome });
+        } else {
+            res.status(401).json({ erro: 'Senha incorreta' });
+        }
+    } catch (e) {
+        res.status(500).json({ erro: 'Erro interno no login' });
+    }
+});
+
+// === REPARAÇÃO E MIGRAÇÃO DE BANCO ===
+app.get('/migrar-senhas', async (req, res) => {
+    // Rota utilitária temporária para criptografar as senhas antigas em texto limpo
+    try {
+        const r = await pool.query('SELECT id, senha FROM usuarios');
+        let atualizados = 0;
+        for (let user of r.rows) {
+            if (!user.senha.startsWith('$')) {
+                const salt = await bcrypt.genSalt(10);
+                const hash = await bcrypt.hash(user.senha, salt);
+                await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [hash, user.id]);
+                atualizados++;
+            }
+        }
+        res.send(`✅ Migração concluída: ${atualizados} utilizadores atualizados para senhas protegidas com bcrypt.`);
+    } catch (e) { res.status(500).send('Erro: ' + e.message); }
+});
+
 app.get('/reparar-banco', async (req, res) => {
     try {
         await pool.query(`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS rua TEXT`);
@@ -19,27 +82,35 @@ app.get('/reparar-banco', async (req, res) => {
         await pool.query(`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS complemento VARCHAR(100)`);
         await pool.query(`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS cidade VARCHAR(100)`);
         await pool.query(`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS estado VARCHAR(2)`);
-        res.send('✅ Banco de dados atualizado com colunas de endereço!');
+        res.send('✅ Banco de dados atualizado!');
     } catch (e) { res.status(500).send('Erro: ' + e.message); }
 });
 
+// Todas as rotas daqui para baixo requerem Autenticação
+app.use(verificarToken);
+
 // === UTILIZADORES ===
 app.get('/usuarios', async (req, res) => {
+    if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
     const r = await pool.query('SELECT id, nome, usuario, perfil FROM usuarios ORDER BY nome ASC');
     res.json(r.rows);
 });
 
 app.post('/usuarios', async (req, res) => {
+    if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
     const { nome, usuario, senha, perfil } = req.body;
     try {
-        await pool.query('INSERT INTO usuarios (nome, usuario, senha, perfil) VALUES ($1, $2, $3, $4)', [nome, usuario, senha, perfil]);
-        res.json({ mensagem: '✅ Utilizador criado!' });
-    } catch (e) { res.status(400).json({ erro: '❌ Login já existe' }); }
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(senha, salt);
+        await pool.query('INSERT INTO usuarios (nome, usuario, senha, perfil) VALUES ($1, $2, $3, $4)', [nome, usuario, hash, perfil]);
+        res.json({ mensagem: '✅ Utilizador criado com sucesso!' });
+    } catch (e) { res.status(400).json({ erro: '❌ Este login já existe ou ocorreu um erro' }); }
 });
 
 app.delete('/usuarios/:id', async (req, res) => {
+    if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
     await pool.query('DELETE FROM usuarios WHERE id = $1', [req.params.id]);
-    res.json({ mensagem: '✅ Removido!' });
+    res.json({ mensagem: '✅ Utilizador removido!' });
 });
 
 // === EVENTOS ===
@@ -56,6 +127,7 @@ app.get('/eventos', async (req, res) => {
 });
 
 app.post('/eventos', async (req, res) => {
+    if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
     const { nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2, local_atendimento, instrucoes_pdf, insta, whats, email, site } = req.body;
     try {
         await pool.query(`INSERT INTO eventos (nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2, local_atendimento, instrucoes_pdf, insta, whats, email, site) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`, 
@@ -65,6 +137,7 @@ app.post('/eventos', async (req, res) => {
 });
 
 app.put('/eventos/:id', async (req, res) => {
+    if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
     const { nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2, local_atendimento, instrucoes_pdf, insta, whats, email, site } = req.body;
     try {
         await pool.query(`UPDATE eventos SET nome=$1, data_dia1=$2, vagas_dia1=$3, data_dia2=$4, vagas_dia2=$5, local_atendimento=$6, instrucoes_pdf=$7, insta=$8, whats=$9, email=$10, site=$11 WHERE id=$12`, 
@@ -74,6 +147,7 @@ app.put('/eventos/:id', async (req, res) => {
 });
 
 app.delete('/eventos/:id', async (req, res) => {
+    if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
     await pool.query('DELETE FROM pacientes WHERE evento_id = $1', [req.params.id]);
     await pool.query('DELETE FROM eventos WHERE id = $1', [req.params.id]);
     res.json({ mensagem: '✅ Evento removido!' });
@@ -117,11 +191,4 @@ app.delete('/pacientes/:id', async (req, res) => {
     res.json({ m: 'OK' });
 });
 
-app.post('/login', async (req, res) => {
-    const { usuario, senha } = req.body;
-    const r = await pool.query('SELECT nome, perfil FROM usuarios WHERE usuario = $1 AND senha = $2', [usuario, senha]);
-    if (r.rows.length > 0) res.json({ sucesso: true, perfil: r.rows[0].perfil, nome: r.rows[0].nome });
-    else res.status(401).json({ erro: 'Incorreto' });
-});
-
-app.listen(porta, () => console.log(`Servidor na porta ${porta}`));
+app.listen(porta, () => console.log(`Servidor seguro rodando na porta ${porta}`));

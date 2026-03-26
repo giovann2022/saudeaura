@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// Usar localhost para testar as novas mudanças do backend
+// Usar variável de ambiente para a URL da API, ou fallback para localhost
 const api = axios.create({
-  baseURL: 'http://localhost:3000'
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000'
 });
 
 api.interceptors.request.use((config) => {

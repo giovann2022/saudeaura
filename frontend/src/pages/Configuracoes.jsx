@@ -93,7 +93,7 @@ export default function Configuracoes() {
       carregarTudo(); 
       setNovoUsu({ nome: '', usuario: '', senha: '', perfil: 'voluntario' });
     } catch(err) { 
-      toast.error('Erro ou utilizador duplicado'); 
+      toast.error(err.response?.data?.erro || 'Erro ao criar utilizador'); 
     } 
   };
 

@@ -86,6 +86,9 @@ app.get('/reparar-banco', async (req, res) => {
     } catch (e) { res.status(500).send('Erro: ' + e.message); }
 });
 
+// Auto-migrate database sizes for BCrypt
+pool.query('ALTER TABLE usuarios ALTER COLUMN senha TYPE VARCHAR(255)').catch(() => {});
+
 // Todas as rotas daqui para baixo requerem Autenticação
 app.use(verificarToken);
 
@@ -104,7 +107,13 @@ app.post('/usuarios', async (req, res) => {
         const hash = await bcrypt.hash(senha, salt);
         await pool.query('INSERT INTO usuarios (nome, usuario, senha, perfil) VALUES ($1, $2, $3, $4)', [nome, usuario, hash, perfil]);
         res.json({ mensagem: '✅ Utilizador criado com sucesso!' });
-    } catch (e) { res.status(400).json({ erro: '❌ Este login já existe ou ocorreu um erro' }); }
+    } catch (e) {
+        if (e.message.includes('unique')) {
+            res.status(400).json({ erro: '❌ Este login já existe. Escolha outro.' });
+        } else {
+            res.status(400).json({ erro: 'Erro BD: ' + e.message });
+        }
+    }
 });
 
 app.delete('/usuarios/:id', async (req, res) => {

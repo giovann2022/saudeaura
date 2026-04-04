@@ -1,0 +1,799 @@
+{
+  "name": "Saúde Aura - WhatsApp Cadastro",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-600, -80],
+      "id": "238168c0-0844-4312-ac42-5cf70e2ca0ec",
+      "name": "Webhook",
+      "webhookId": "1d18d507-3dec-4e98-8297-185bb0a0d458"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f5cadb4e-e158-4475-ac25-ff43de0caf87",
+              "name": "session",
+              "value": "={{ $json.body.session }}",
+              "type": "string"
+            },
+            {
+              "id": "a8566f45-32c7-4d83-819f-204b0f92ea0e",
+              "name": "chatId",
+              "value": "={{ $json.body.payload._data.from }}",
+              "type": "string"
+            },
+            {
+              "id": "210fc922-3e94-48a0-8bc7-c8db2d71f547",
+              "name": "pushName",
+              "value": "={{ $json.body.payload._data.notifyName }}",
+              "type": "string"
+            },
+            {
+              "id": "16b396ab-d1d2-44e1-8da9-87937c5fc9d8",
+              "name": "payload_id",
+              "value": "={{ $json.body.payload.id }}",
+              "type": "string"
+            },
+            {
+              "id": "569a1793-7a89-4d9d-a0d3-d9ec8cb70d9c",
+              "name": "event",
+              "value": "={{ $json.body.event }}",
+              "type": "string"
+            },
+            {
+              "id": "8f04353f-882a-403e-be63-848785d8b7f0",
+              "name": "message",
+              "value": "={{ $json.body.payload.body }}",
+              "type": "string"
+            },
+            {
+              "id": "8d089112-9442-4771-a278-a3c2b58601a1",
+              "name": "fromME",
+              "value": "={{ $json.body.payload.fromMe }}",
+              "type": "boolean"
+            },
+            {
+              "id": "has-media-01",
+              "name": "hasMedia",
+              "value": "={{ $json.body.payload.hasMedia }}",
+              "type": "boolean"
+            },
+            {
+              "id": "media-type-01",
+              "name": "messageType",
+              "value": "={{ $json.body.payload._data.type }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-400, -80],
+      "id": "d13d4c8a-8da6-4763-a982-6b9462941f5f",
+      "name": "Dados"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "message",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "evt-msg-text"
+                  },
+                  {
+                    "leftValue": "={{ $json.hasMedia }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "notEquals"
+                    },
+                    "id": "no-media"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "texto"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "message",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "evt-msg-audio"
+                  },
+                  {
+                    "leftValue": "={{ $json.hasMedia }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "has-media-check"
+                  },
+                  {
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "ptt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "is-ptt"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "message",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "evt-msg-audio2"
+                  },
+                  {
+                    "leftValue": "={{ $json.hasMedia }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "has-media-check2"
+                  },
+                  {
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "is-audio"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "audio_file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-200, -80],
+      "id": "c91c4c63-fc1b-4ec3-a754-9154847e4ea9",
+      "name": "Tipo Mensagem"
+    },
+
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.WAHA_API_URL || 'http://localhost:3000' }}/api/{{ $json.session }}/chats/{{ $json.chatId }}/messages/{{ $json.payload_id }}/download",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 100],
+      "id": "download-audio-01",
+      "name": "Baixar Audio WAHA",
+      "credentials": {
+        "wahaApi": {
+          "id": "WERuDqH51sYHoH53",
+          "name": "WAHA account"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Pegar o áudio baixado como base64 e preparar para o Gemini\nconst items = $input.all();\nconst item = items[0];\n\n// O áudio vem como binary data do download\nconst binaryData = item.binary?.data;\nif (!binaryData) {\n  // Fallback: se não veio binary, talvez veio como JSON com base64\n  const mediaUrl = item.json?.mediaUrl || item.json?.url;\n  if (mediaUrl) {\n    return [{ json: { audioUrl: mediaUrl, chatId: $('Dados').first().json.chatId, session: $('Dados').first().json.session } }];\n  }\n  throw new Error('Áudio não encontrado no download');\n}\n\nconst base64Audio = binaryData.data;\nconst mimeType = binaryData.mimeType || 'audio/ogg';\n\nreturn [{\n  json: {\n    audioBase64: base64Audio,\n    mimeType: mimeType,\n    chatId: $('Dados').first().json.chatId,\n    session: $('Dados').first().json.session\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 100],
+      "id": "code-prep-audio-01",
+      "name": "Preparar Audio"
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: $json.mimeType, data: $json.audioBase64 } }, { text: 'Transcreva este áudio em português brasileiro. Retorne APENAS o texto falado, sem comentários adicionais.' }] }] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 100],
+      "id": "gemini-transcribe-01",
+      "name": "Transcrever Audio (Gemini)"
+    },
+
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "set-transcribed-msg",
+              "name": "message",
+              "value": "={{ $json.candidates[0].content.parts[0].text }}",
+              "type": "string"
+            },
+            {
+              "id": "keep-chatid",
+              "name": "chatId",
+              "value": "={{ $('Dados').first().json.chatId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [660, 100],
+      "id": "set-transcribed-01",
+      "name": "Texto Transcrito"
+    },
+
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "Você é o assistente do Saúde Aura. Seu objetivo é coletar dados de pacientes para cadastro em evento de atendimento espiritual.\n\nREGRAS DE OURO:\n1. Trate sempre por \"Senhor\" ou \"Senhora\".\n2. Faça APENAS UMA pergunta por vez.\n3. Se a pessoa responder algo confuso, peça desculpas e pergunte novamente com carinho.\n4. Seja acolhedor e paciente.\n5. O paciente pode responder por texto OU por áudio (já transcrito para texto). Trate ambos igualmente.\n\nORDEM DA COLETA:\n1. Nome Completo.\n2. Data de Nascimento (formato DD/MM/AAAA).\n3. Telefone (confirme o número que ela está usando).\n4. Endereço completo: Rua, Número, Complemento (se houver), Bairro, Cidade e Estado.\n5. Pergunte o Dia de Atendimento preferido: \"Dia 1\" ou \"Dia 2\".\n6. Pergunte o Tipo de Atendimento: \"Socorro Espiritual\" ou \"Cura Espiritual\".\n\nLÓGICA DAS QUEIXAS:\n- Se escolher SOCORRO ESPIRITUAL: Peça para descrever 1 queixa principal.\n- Se escolher CURA ESPIRITUAL: Peça para descrever até 3 queixas (a primeira é obrigatória, as outras opcionais).\n\nENCERRAMENTO:\nQuando terminar de coletar TODOS os dados (incluindo as queixas), faça o seguinte:\n1. Apresente um resumo dos dados ao paciente e peça confirmação.\n2. Se o paciente confirmar, responda com EXATAMENTE este formato (a tag [FINALIZADO] seguida de um bloco JSON):\n\n[FINALIZADO]\n```json\n{\n  \"nome\": \"Nome Completo do Paciente\",\n  \"telefone\": \"(XX) XXXXX-XXXX\",\n  \"nascimento\": \"AAAA-MM-DD\",\n  \"idade\": 70,\n  \"rua\": \"Nome da Rua\",\n  \"numero\": \"123\",\n  \"complemento\": \"Apto 4\",\n  \"bairro\": \"Nome do Bairro\",\n  \"cidade\": \"Nome da Cidade\",\n  \"estado\": \"SP\",\n  \"dia_atendimento\": \"Dia 1\",\n  \"tipo_tratamento\": \"Socorro Espiritual\",\n  \"queixa1\": \"Descrição da queixa 1\",\n  \"queixa2\": \"Descrição da queixa 2\",\n  \"queixa3\": \"Descrição da queixa 3\"\n}\n```\n\nApós o JSON, escreva uma mensagem carinhosa confirmando o cadastro.\n\nIMPORTANTE:\n- A idade deve ser calculada a partir da data de nascimento.\n- A data de nascimento no JSON deve estar no formato AAAA-MM-DD (ano-mês-dia).\n- O telefone deve estar formatado como (XX) XXXXX-XXXX.\n- O estado deve ser a sigla com 2 letras (SP, RJ, MG, etc).\n- Se queixa2 ou queixa3 não existirem, não inclua no JSON.\n- NUNCA invente dados. Use APENAS o que o paciente informou."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [880, -80],
+      "id": "0d97a39f-4fdb-4c55-b3f2-bc3a4008498f",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [740, 128],
+      "id": "329a6273-2cbb-412b-8a8b-9f296c97e662",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "QzNdqK9mbNNzjJww",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Dados').first().json.chatId }}",
+        "sessionTTL": 3600,
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [900, 128],
+      "id": "aeca6347-feb2-43a5-8262-deaf4a95ba34",
+      "name": "Redis Chat Memory",
+      "credentials": {
+        "redis": {
+          "id": "xI2TB69rwFcTLKpx",
+          "name": "Redis account"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": "[FINALIZADO]",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "chk-finalizado-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "finalizado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output }}",
+                    "rightValue": "[FINALIZADO]",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notContains"
+                    },
+                    "id": "chk-conversa-01"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "conversa"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [1100, -80],
+      "id": "switch-finalizado-01",
+      "name": "Finalizado?"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Extrair o JSON do output do AI Agent\nconst output = $input.first().json.output;\n\n// Encontrar o bloco JSON na resposta\nconst jsonMatch = output.match(/```json\\s*([\\s\\S]*?)\\s*```/);\n\nif (!jsonMatch) {\n  throw new Error('JSON não encontrado na resposta do AI Agent');\n}\n\nconst dadosPaciente = JSON.parse(jsonMatch[1]);\n\n// Extrair a mensagem de confirmação (texto após o bloco JSON)\nconst partes = output.split('```');\nconst mensagemConfirmacao = (partes.length >= 3 ? partes[2].trim() : '') || 'Cadastro realizado com sucesso! Deus abençoe.';\n\n// ID do evento ativo - CONFIGURE AQUI ou use variável de ambiente no n8n\nconst EVENTO_ID = parseInt($env.EVENTO_ID_ATIVO) || 1;\n\nreturn [{\n  json: {\n    evento_id: EVENTO_ID,\n    dia_atendimento: dadosPaciente.dia_atendimento,\n    tipo_tratamento: dadosPaciente.tipo_tratamento,\n    nome: dadosPaciente.nome,\n    telefone: dadosPaciente.telefone,\n    nascimento: dadosPaciente.nascimento,\n    idade: dadosPaciente.idade,\n    rua: dadosPaciente.rua,\n    numero: dadosPaciente.numero,\n    complemento: dadosPaciente.complemento || null,\n    bairro: dadosPaciente.bairro,\n    cidade: dadosPaciente.cidade,\n    estado: dadosPaciente.estado,\n    queixa1: dadosPaciente.queixa1,\n    queixa2: dadosPaciente.queixa2 || null,\n    queixa3: dadosPaciente.queixa3 || null,\n    whatsapp_chat_id: $('Dados').first().json.chatId,\n    mensagem_confirmacao: mensagemConfirmacao\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, -180],
+      "id": "code-parse-json-01",
+      "name": "Parsear Dados"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CADASTRO_API_URL || 'https://saudeaura.site/cadastro' }}/api/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.N8N_WEBHOOK_KEY || 'saudeaura_n8n_2026_secret' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ evento_id: $json.evento_id, dia_atendimento: $json.dia_atendimento, tipo_tratamento: $json.tipo_tratamento, nome: $json.nome, telefone: $json.telefone, nascimento: $json.nascimento, idade: $json.idade, rua: $json.rua, numero: $json.numero, complemento: $json.complemento, bairro: $json.bairro, cidade: $json.cidade, estado: $json.estado, queixa1: $json.queixa1, queixa2: $json.queixa2, queixa3: $json.queixa3, whatsapp_chat_id: $json.whatsapp_chat_id }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, -180],
+      "id": "http-cadastro-01",
+      "name": "Cadastrar Paciente"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Seen",
+        "session": "={{ $('Dados').item.json.session }}",
+        "chatId": "={{ $('Dados').item.json.chatId }}",
+        "messageId": "={{ $('Dados').item.json.payload_id }}",
+        "participant": "",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [1760, -180],
+      "id": "b31e5876-seen-finalizado",
+      "name": "Send Seen (Finalizado)",
+      "credentials": {
+        "wahaApi": {
+          "id": "WERuDqH51sYHoH53",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "={{ $('Dados').item.json.session }}",
+        "chatId": "={{ $('Webhook').item.json.body.payload._data.id.remote }}",
+        "text": "={{ $('Parsear Dados').item.json.mensagem_confirmacao }}\n\n✅ *Cadastro confirmado!*\n📋 Sua senha de atendimento é: *{{ $('Cadastrar Paciente').item.json.senha }}*\n\nGuarde este número com carinho! Estou enviando seu comprovante em PDF...",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [1980, -180],
+      "id": "eca1adb0-msg-finalizado",
+      "name": "Enviar Confirmação",
+      "credentials": {
+        "wahaApi": {
+          "id": "WERuDqH51sYHoH53",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar PDF base64 como binary para envio\nconst cadastroResult = $('Cadastrar Paciente').first().json;\nconst pdfBase64 = cadastroResult.pdf_base64;\nconst pdfFilename = cadastroResult.pdf_filename || 'Comprovante.pdf';\n\nif (!pdfBase64) {\n  throw new Error('PDF não foi gerado pela API');\n}\n\nconst binaryData = Buffer.from(pdfBase64, 'base64');\n\nreturn [{\n  json: {\n    filename: pdfFilename,\n    senha: cadastroResult.senha\n  },\n  binary: {\n    data: await this.helpers.prepareBinaryData(binaryData, pdfFilename, 'application/pdf')\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, -180],
+      "id": "code-pdf-binary-01",
+      "name": "Preparar PDF"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send File",
+        "session": "={{ $('Dados').item.json.session }}",
+        "chatId": "={{ $('Webhook').item.json.body.payload._data.id.remote }}",
+        "file": "={{ 'data:application/pdf;base64,' + $('Cadastrar Paciente').item.json.pdf_base64 }}",
+        "filename": "={{ $json.filename }}",
+        "caption": "={{ '📋 Comprovante de Cadastro - Senha ' + $json.senha }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [2420, -180],
+      "id": "waha-send-pdf-01",
+      "name": "Enviar PDF WhatsApp",
+      "credentials": {
+        "wahaApi": {
+          "id": "WERuDqH51sYHoH53",
+          "name": "WAHA account"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Seen",
+        "session": "={{ $('Dados').item.json.session }}",
+        "chatId": "={{ $('Dados').item.json.chatId }}",
+        "messageId": "={{ $('Dados').item.json.payload_id }}",
+        "participant": "",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [1320, 20],
+      "id": "b31e5876-7811-4d46-97ed-88633b6033b4",
+      "name": "Send Seen",
+      "credentials": {
+        "wahaApi": {
+          "id": "WERuDqH51sYHoH53",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "={{ $('Dados').item.json.session }}",
+        "chatId": "={{ $('Webhook').item.json.body.payload._data.id.remote }}",
+        "text": "={{ $('AI Agent').item.json.output }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [1540, 20],
+      "id": "eca1adb0-7b86-4bc5-96ee-e3cea032a7cc",
+      "name": "Send a text message",
+      "credentials": {
+        "wahaApi": {
+          "id": "WERuDqH51sYHoH53",
+          "name": "WAHA account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados": {
+      "main": [
+        [
+          {
+            "node": "Tipo Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo Mensagem": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Baixar Audio WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Baixar Audio WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar Audio WAHA": {
+      "main": [
+        [
+          {
+            "node": "Preparar Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcrever Audio (Gemini)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcrever Audio (Gemini)": {
+      "main": [
+        [
+          {
+            "node": "Texto Transcrito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Texto Transcrito": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Finalizado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalizado?": {
+      "main": [
+        [
+          {
+            "node": "Parsear Dados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Seen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Dados": {
+      "main": [
+        [
+          {
+            "node": "Cadastrar Paciente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cadastrar Paciente": {
+      "main": [
+        [
+          {
+            "node": "Send Seen (Finalizado)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Seen (Finalizado)": {
+      "main": [
+        [
+          {
+            "node": "Enviar Confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Confirmação": {
+      "main": [
+        [
+          {
+            "node": "Preparar PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar PDF": {
+      "main": [
+        [
+          {
+            "node": "Enviar PDF WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Seen": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b2366820-b133-4119-a4d4-da07556eaab0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ceac5bd459b90ad06db2bdf9af5116db1d1a35e8440fbc812a47611b581e3c60"
+  },
+  "id": "fygZ8L7xHI1KuKKQ",
+  "tags": []
+}

@@ -3,6 +3,7 @@ const cors = require('cors');
 const pool = require('./db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { gerarPDFReciboBuffer } = require('./pdfRecibo');
 require('dotenv').config();
 
 const app = express();
@@ -88,6 +89,79 @@ app.get('/reparar-banco', async (req, res) => {
 
 // Auto-migrate database sizes for BCrypt
 pool.query('ALTER TABLE usuarios ALTER COLUMN senha TYPE VARCHAR(255)').catch(() => {});
+
+// === WEBHOOK N8N (WhatsApp) — autenticação por API Key ===
+const N8N_WEBHOOK_KEY = process.env.N8N_WEBHOOK_KEY || 'saudeaura_n8n_2026_secret';
+
+app.post('/api/webhook/n8n', async (req, res) => {
+    // Verificar API Key
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey !== N8N_WEBHOOK_KEY) {
+        return res.status(401).json({ erro: 'API Key inválida' });
+    }
+
+    const { evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3, whatsapp_chat_id } = req.body;
+
+    // Validação dos campos obrigatórios
+    if (!evento_id || !dia_atendimento || !tipo_tratamento || !nome || !telefone || !queixa1) {
+        return res.status(400).json({ erro: 'Campos obrigatórios faltando: evento_id, dia_atendimento, tipo_tratamento, nome, telefone, queixa1' });
+    }
+
+    try {
+        const ev = (await pool.query('SELECT * FROM eventos WHERE id = $1', [evento_id])).rows[0];
+        if (!ev) return res.status(404).json({ erro: 'Evento não encontrado' });
+
+        const ocup = parseInt((await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento])).rows[0].count);
+
+        if (dia_atendimento === 'Dia 1' && ocup >= ev.vagas_dia1) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 1' });
+        if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 2' });
+
+        const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
+        const senha = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
+
+        await pool.query(
+            `INSERT INTO pacientes (evento_id, senha_atendimento, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, endereco, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+            [evento_id, senha, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade || null, rua || null, numero || null, complemento || null, bairro || null, cidade || null, estado || null, queixa1, queixa2 || null, queixa3 || null]
+        );
+
+        console.log(`[n8n/WhatsApp] Paciente cadastrado: ${nome} | Senha: ${senha} | Chat: ${whatsapp_chat_id || 'N/A'}`);
+
+        // Gerar PDF do comprovante
+        let pdf_base64 = null;
+        try {
+            const pdfBuffer = await gerarPDFReciboBuffer(senha, nome, dia_atendimento, tipo_tratamento, ev);
+            pdf_base64 = pdfBuffer.toString('base64');
+        } catch (pdfErr) {
+            console.error('[n8n/WhatsApp] Erro ao gerar PDF:', pdfErr.message);
+        }
+
+        res.status(201).json({ sucesso: true, senha, nome, mensagem: `Paciente ${nome} cadastrado com senha ${senha}`, pdf_base64, pdf_filename: `Comprovante_Senha_${senha}_${nome.split(' ')[0]}.pdf` });
+    } catch (e) {
+        console.error('[n8n/WhatsApp] Erro:', e.message);
+        res.status(500).json({ erro: e.message });
+    }
+});
+
+// Rota auxiliar: listar eventos disponíveis (para o n8n saber qual evento_id usar)
+app.get('/api/webhook/n8n/eventos', async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey !== N8N_WEBHOOK_KEY) {
+        return res.status(401).json({ erro: 'API Key inválida' });
+    }
+
+    try {
+        const result = await pool.query('SELECT id, nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2 FROM eventos ORDER BY id DESC');
+        const eventos = await Promise.all(result.rows.map(async (ev) => {
+            const c1 = parseInt((await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [ev.id, 'Dia 1'])).rows[0].count);
+            const c2 = parseInt((await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [ev.id, 'Dia 2'])).rows[0].count);
+            return { ...ev, vagas_disponiveis_dia1: ev.vagas_dia1 - c1, vagas_disponiveis_dia2: ev.vagas_dia2 - c2 };
+        }));
+        res.json(eventos);
+    } catch (e) {
+        res.status(500).json({ erro: e.message });
+    }
+});
 
 // Todas as rotas daqui para baixo requerem Autenticação
 app.use(verificarToken);

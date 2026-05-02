@@ -21,6 +21,7 @@ const WHATSAPP_PHONE = process.env.WHATSAPP_PHONE;
 
 const logger = pino({ level: 'silent' });
 const conversas = new Map();
+const conversasPausadas = new Set();
 let sock = null;
 let ultimoQR = null;
 
@@ -369,13 +370,47 @@ async function conectarWhatsApp() {
         if (type !== 'notify') return;
 
         for (const msg of messages) {
-            if (msg.key.fromMe) continue;
             if (!msg.message) continue;
             if (msg.key.remoteJid?.includes('@g.us')) continue;
 
-            console.log(`[MSG] De: ${msg.key.remoteJid}`);
+            const chatId = msg.key.remoteJid;
+            const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+
+            // Comandos de admin (mensagens enviadas por você)
+            if (msg.key.fromMe && texto.startsWith('!')) {
+                const cmd = texto.trim().toLowerCase();
+                if (cmd === '!pausa') {
+                    conversasPausadas.add(chatId);
+                    conversas.delete(chatId);
+                    console.log(`[ADMIN] Bot pausado para ${chatId}`);
+                    await sock.sendMessage(chatId, { text: '⏸️ Bot pausado. Você está no controle. Digite !retoma para reativar.' }).catch(() => {});
+                } else if (cmd === '!retoma') {
+                    conversasPausadas.delete(chatId);
+                    console.log(`[ADMIN] Bot retomado para ${chatId}`);
+                    await sock.sendMessage(chatId, { text: '▶️ Bot reativado. Olá! Posso ajudar você com o cadastro? 😊' }).catch(() => {});
+                } else if (cmd === '!limpa') {
+                    conversas.delete(chatId);
+                    conversasPausadas.delete(chatId);
+                    console.log(`[ADMIN] Histórico limpo para ${chatId}`);
+                } else if (cmd === '!status') {
+                    const pausadas = [...conversasPausadas].join('\n') || 'nenhuma';
+                    const ativas = [...conversas.keys()].join('\n') || 'nenhuma';
+                    await sock.sendMessage(chatId, { text: `📊 *Status do Bot*\n\nEvento ativo: id=${eventoIdAtivo}\nConversas ativas:\n${ativas}\n\nPausadas:\n${pausadas}` }).catch(() => {});
+                }
+                continue;
+            }
+
+            if (msg.key.fromMe) continue;
+
+            // Ignora pacientes com bot pausado
+            if (conversasPausadas.has(chatId)) {
+                console.log(`[MSG] ${chatId} (bot pausado — ignorando)`);
+                continue;
+            }
+
+            console.log(`[MSG] De: ${chatId}`);
             processarMensagem(msg).catch(err => {
-                console.error(`[${msg.key.remoteJid}] Erro não tratado:`, err.message);
+                console.error(`[${chatId}] Erro não tratado:`, err.message);
             });
         }
     });

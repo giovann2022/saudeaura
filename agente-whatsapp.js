@@ -6,6 +6,7 @@ require('dotenv').config();
 const baileys = require('@whiskeysockets/baileys');
 const makeWASocket = baileys.default || baileys.makeWASocket;
 const { useMultiFileAuthState, DisconnectReason, downloadMediaMessage, fetchLatestBaileysVersion } = baileys;
+const QRCode = require('qrcode');
 
 const app = express();
 app.use(express.json());
@@ -20,6 +21,7 @@ const WHATSAPP_PHONE = process.env.WHATSAPP_PHONE;
 const logger = pino({ level: 'silent' });
 const conversas = new Map();
 let sock = null;
+let ultimoQR = null;
 
 let dataDia1 = 'Dia 1';
 let dataDia2 = 'Dia 2';
@@ -319,7 +321,7 @@ async function conectarWhatsApp() {
         version,
         auth: state,
         logger,
-        printQRInTerminal: false,
+        printQRInTerminal: true,
         browser: ['AnaBot', 'Safari', '16.0'],
         markOnlineOnConnect: false,
         generateHighQualityLinkPreview: false,
@@ -330,15 +332,9 @@ async function conectarWhatsApp() {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        if (qr && WHATSAPP_PHONE) {
-            try {
-                await new Promise(r => setTimeout(r, 3000));
-                const code = await sock.requestPairingCode(WHATSAPP_PHONE.replace(/\D/g, ''));
-                console.log(`\n🔐 Código de pareamento: ${code}`);
-                console.log(`   No WhatsApp: Configurações > Dispositivos vinculados > Vincular dispositivo > Código de 8 dígitos\n`);
-            } catch (e) {
-                console.error('Erro ao solicitar código de pareamento:', e.message);
-            }
+        if (qr) {
+            ultimoQR = qr;
+            console.log(`\n📱 QR Code disponível em: http://129.153.78.106:3001/qr\n`);
         }
 
         if (connection === 'close') {
@@ -370,6 +366,16 @@ async function conectarWhatsApp() {
         }
     });
 }
+
+app.get('/qr', async (req, res) => {
+    if (!ultimoQR) return res.send('<html><body style="font-family:sans-serif;text-align:center;padding:50px"><h2>QR não disponível</h2><p>Aguarde o agente iniciar ou já está conectado.</p></body></html>');
+    try {
+        const qrImage = await QRCode.toDataURL(ultimoQR);
+        res.send(`<html><body style="background:#111;text-align:center;padding:40px"><img src="${qrImage}" style="width:280px;height:280px;border:10px solid white;border-radius:8px"/><p style="color:white;font-size:18px;margin-top:20px">Escaneie com o WhatsApp Business</p><p style="color:#aaa">Configurações → Dispositivos vinculados → Vincular dispositivo</p></body></html>`);
+    } catch (e) {
+        res.status(500).send('Erro ao gerar QR');
+    }
+});
 
 app.get('/health', (req, res) => res.json({
     status: 'ok',

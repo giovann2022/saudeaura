@@ -16,7 +16,7 @@ const PORTA = process.env.AGENTE_PORT || 3001;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const CADASTRO_API_URL = process.env.CADASTRO_API_URL || 'http://localhost:3000';
 const CADASTRO_API_KEY = process.env.N8N_WEBHOOK_KEY || 'saudeaura_n8n_2026_secret';
-const EVENTO_ID = parseInt(process.env.EVENTO_ID_ATIVO) || 1;
+const EVENTO_ID_CONFIG = parseInt(process.env.EVENTO_ID_ATIVO) || 1;
 const WHATSAPP_PHONE = process.env.WHATSAPP_PHONE;
 
 const logger = pino({ level: 'silent' });
@@ -26,6 +26,7 @@ let ultimoQR = null;
 
 let dataDia1 = 'Dia 1';
 let dataDia2 = 'Dia 2';
+let eventoIdAtivo = EVENTO_ID_CONFIG;
 
 function formatarData(dataISO) {
     if (!dataISO) return null;
@@ -39,14 +40,19 @@ async function carregarDatasEvento() {
             `${CADASTRO_API_URL}/api/webhook/n8n/eventos`,
             { headers: { 'x-api-key': CADASTRO_API_KEY }, timeout: 10000 }
         );
-        const evento = resp.data.find(e => e.id === EVENTO_ID);
-        if (evento) {
-            const d1 = formatarData(evento.data_dia1);
-            const d2 = formatarData(evento.data_dia2);
-            if (d1) dataDia1 = `Dia 1 (${d1})`;
-            if (d2) dataDia2 = `Dia 2 (${d2})`;
-            console.log(`📅 Datas carregadas: ${dataDia1} | ${dataDia2}`);
+        const eventos = resp.data;
+        if (!eventos || eventos.length === 0) {
+            console.warn('⚠️  Nenhum evento encontrado no banco');
+            return;
         }
+        // Tenta usar o evento configurado; se não existir, usa o mais recente
+        const evento = eventos.find(e => e.id === EVENTO_ID_CONFIG) || eventos[0];
+        eventoIdAtivo = evento.id;
+        const d1 = formatarData(evento.data_dia1);
+        const d2 = formatarData(evento.data_dia2);
+        if (d1) dataDia1 = `Dia 1 (${d1})`;
+        if (d2) dataDia2 = `Dia 2 (${d2})`;
+        console.log(`📅 Evento ativo: id=${eventoIdAtivo} | ${dataDia1} | ${dataDia2}`);
     } catch (err) {
         console.warn('⚠️  Não foi possível carregar datas do evento:', err.message);
     }
@@ -292,7 +298,7 @@ async function processarMensagem(msg) {
             }
 
             const mensagemFinal = getMensagemPosJson(resposta);
-            const resultado = await cadastrarPaciente({ evento_id: EVENTO_ID, ...dados, whatsapp_chat_id: chatId });
+            const resultado = await cadastrarPaciente({ evento_id: eventoIdAtivo, ...dados, whatsapp_chat_id: chatId });
 
             if (!resultado.sucesso) {
                 const erroMsg = resultado.erro || 'As vagas para o dia selecionado podem estar esgotadas.';

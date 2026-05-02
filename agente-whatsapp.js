@@ -18,7 +18,37 @@ const conversas = new Map();
 
 const EVOLUTION_HEADERS = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
 
-const SYSTEM_PROMPT = `Você é a Ana, voluntária da equipe de cadastro do Saúde Aura. Você faz os cadastros para o evento de atendimento espiritual pelo WhatsApp.
+// Datas do evento — preenchidas no startup e atualizadas a cada hora
+let dataDia1 = 'Dia 1';
+let dataDia2 = 'Dia 2';
+
+function formatarData(dataISO) {
+    if (!dataISO) return null;
+    const d = new Date(dataISO);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+}
+
+async function carregarDatasEvento() {
+    try {
+        const resp = await axios.get(
+            `${CADASTRO_API_URL}/api/webhook/n8n/eventos`,
+            { headers: { 'x-api-key': CADASTRO_API_KEY }, timeout: 10000 }
+        );
+        const evento = resp.data.find(e => e.id === EVENTO_ID);
+        if (evento) {
+            const d1 = formatarData(evento.data_dia1);
+            const d2 = formatarData(evento.data_dia2);
+            if (d1) dataDia1 = `Dia 1 (${d1})`;
+            if (d2) dataDia2 = `Dia 2 (${d2})`;
+            console.log(`📅 Datas carregadas: ${dataDia1} | ${dataDia2}`);
+        }
+    } catch (err) {
+        console.warn('⚠️  Não foi possível carregar datas do evento:', err.message);
+    }
+}
+
+function gerarSystemPrompt() {
+    return `Você é a Ana, voluntária da equipe de cadastro do Saúde Aura. Você faz os cadastros para o evento de atendimento espiritual pelo WhatsApp.
 
 PERSONALIDADE E TOM:
 - Seja calorosa, acolhedora e paciente — como uma voluntária gentil
@@ -49,7 +79,7 @@ ORDEM DA COLETA (siga esta ordem sem pular etapas):
      → Após confirmação, pergunte apenas o Número e depois o Complemento (opcional)
    - Se receber [CEP NÃO ENCONTRADO], peça manualmente: Rua, Número, Complemento (opcional), Bairro, Cidade, Estado (sigla)
    - Se a pessoa disser que não sabe o CEP, peça diretamente: Rua, Número, Complemento (opcional), Bairro, Cidade, Estado (sigla)
-5. Dia de Atendimento preferido: "Dia 1" ou "Dia 2"
+5. Dia de Atendimento preferido: "${dataDia1}" ou "${dataDia2}"
 6. Tipo de Atendimento: "Socorro Espiritual" ou "Cura Espiritual"
 7. Queixas:
    - SOCORRO ESPIRITUAL: 1 queixa principal
@@ -99,9 +129,11 @@ OBSERVAÇÕES TÉCNICAS:
 - Data no JSON: formato AAAA-MM-DD
 - Telefone: formato (XX) XXXXX-XXXX
 - Estado: sigla de 2 letras (SP, RJ, MG, etc.)
+- No campo "dia_atendimento" do JSON use sempre "Dia 1" ou "Dia 2" (sem a data)
 - Se queixa2 ou queixa3 não existirem, NÃO as inclua no JSON
 - NUNCA invente dados — use APENAS o que a pessoa informou
 - Se a pessoa desistir, agradeça e encerre SEM usar [FINALIZADO]`;
+}
 
 async function chamarGemini(mensagens) {
     const contents = mensagens.map(m => ({
@@ -112,7 +144,7 @@ async function chamarGemini(mensagens) {
     const resp = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            system_instruction: { parts: [{ text: gerarSystemPrompt() }] },
             contents,
             generationConfig: { temperature: 0.4 }
         },
@@ -317,7 +349,11 @@ app.post('/webhook/whatsapp', async (req, res) => {
     }
 });
 
-app.get('/health', (req, res) => res.json({ status: 'ok', conversas_ativas: conversas.size }));
+app.get('/health', (req, res) => res.json({ status: 'ok', conversas_ativas: conversas.size, dia1: dataDia1, dia2: dataDia2 }));
+
+// Carregar datas no startup e atualizar a cada hora
+carregarDatasEvento();
+setInterval(carregarDatasEvento, 60 * 60 * 1000);
 
 app.listen(PORTA, () => {
     console.log(`🤖 Agente WhatsApp rodando na porta ${PORTA}`);

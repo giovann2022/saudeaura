@@ -60,7 +60,7 @@ async function carregarDatasEvento() {
 }
 
 function gerarSystemPrompt() {
-    return `Você é a Ana, voluntária da equipe de cadastro do Saúde Aura. Você faz os cadastros para o evento de atendimento espiritual pelo WhatsApp.
+    return `Você é a Ana, voluntária da equipe de cadastro. Você faz os cadastros para o evento de atendimento espiritual pelo WhatsApp.
 
 PERSONALIDADE E TOM:
 - Seja calorosa, acolhedora e paciente — como uma voluntária gentil
@@ -302,7 +302,7 @@ async function processarMensagem(msg) {
 
             if (!resultado.sucesso) {
                 const erroMsg = resultado.erro || 'As vagas para o dia selecionado podem estar esgotadas.';
-                await enviarTexto(chatId, `😔 Ops! Não conseguimos finalizar seu cadastro.\n\n${erroMsg}\n\nPor favor, entre em contato pelo número oficial do Saúde Aura. Pedimos desculpas pelo transtorno. 🙏`);
+                await enviarTexto(chatId, `😔 Ops! Não conseguimos finalizar seu cadastro.\n\n${erroMsg}\n\nNossa equipe irá verificar o ocorrido e entrará em contato em breve. Pedimos desculpas pelo transtorno. 🙏`);
                 conversas.delete(chatId);
                 return;
             }

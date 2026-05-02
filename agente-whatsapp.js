@@ -60,7 +60,7 @@ async function carregarDatasEvento() {
 }
 
 function gerarSystemPrompt() {
-    return `Você é a Ana, voluntária da equipe de cadastro. Você faz os cadastros para o evento de atendimento espiritual pelo WhatsApp.
+    return `Você é a Eliéte, voluntária da equipe de cadastro. Você faz os cadastros para o evento de atendimento espiritual pelo WhatsApp.
 
 PERSONALIDADE E TOM:
 - Seja calorosa, acolhedora e paciente — como uma voluntária gentil
@@ -77,7 +77,7 @@ REGRAS IMPORTANTES:
 
 SAUDAÇÃO INICIAL:
 Na primeira mensagem ou saudação ("oi", "olá", "bom dia", etc.), apresente-se:
-"Olá! vamos fazer seu cadastro para o atendimento espiritual, tudo bem? Para começar, qual é seu nome completo?"
+"Olá! Sou a Eliéte, vamos fazer seu cadastro para o atendimento espiritual, tudo bem? Para começar, qual é seu nome completo?"
 
 ORDEM DA COLETA (siga esta ordem sem pular etapas):
 1. Nome Completo
@@ -288,6 +288,11 @@ async function processarMensagem(msg) {
         await sock.sendPresenceUpdate('composing', chatId).catch(() => {});
         const resposta = await chamarGemini(historico);
         historico.push({ role: 'model', content: resposta });
+
+        // Pausa proporcional ao tamanho da resposta (mín 2s, máx 6s)
+        const pausaMs = Math.min(6000, Math.max(2000, resposta.length * 25));
+        await new Promise(r => setTimeout(r, pausaMs));
+
         await sock.sendPresenceUpdate('paused', chatId).catch(() => {});
 
         if (resposta.includes('[FINALIZADO]')) {

@@ -43,8 +43,12 @@ ORDEM DA COLETA (siga esta ordem sem pular etapas):
 2. Data de Nascimento (formato DD/MM/AAAA)
 3. Telefone — confirme o número do WhatsApp: "Posso usar o número que você está me enviando?"
 4. Endereço:
-   - Pergunte o CEP primeiro
-   - Se não souber: Rua, Número, Complemento (opcional), Bairro, Cidade, Estado (sigla)
+   - Pergunte o CEP
+   - Se o sistema encontrar o CEP, você receberá uma linha: [CEP ENCONTRADO: rua=X, bairro=Y, cidade=Z, estado=W]
+     → Confirme com a pessoa: "Encontrei seu endereço: [rua], [bairro], [cidade]-[estado]. Está correto?"
+     → Após confirmação, pergunte apenas o Número e depois o Complemento (opcional)
+   - Se receber [CEP NÃO ENCONTRADO], peça manualmente: Rua, Número, Complemento (opcional), Bairro, Cidade, Estado (sigla)
+   - Se a pessoa disser que não sabe o CEP, peça diretamente: Rua, Número, Complemento (opcional), Bairro, Cidade, Estado (sigla)
 5. Dia de Atendimento preferido: "Dia 1" ou "Dia 2"
 6. Tipo de Atendimento: "Socorro Espiritual" ou "Cura Espiritual"
 7. Queixas:
@@ -182,6 +186,18 @@ async function iniciarDigitacao(chatId) {
     ).catch(() => {});
 }
 
+async function consultarCEP(cep) {
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return null;
+    try {
+        const resp = await axios.get(`https://viacep.com.br/ws/${cepLimpo}/json/`, { timeout: 5000 });
+        if (resp.data.erro) return null;
+        return resp.data;
+    } catch {
+        return null;
+    }
+}
+
 async function cadastrarPaciente(dados) {
     const resp = await axios.post(
         `${CADASTRO_API_URL}/api/webhook/n8n`,
@@ -244,6 +260,17 @@ app.post('/webhook/whatsapp', async (req, res) => {
         }
 
         if (!mensagemTexto.trim()) return;
+
+        // Detectar CEP na mensagem e enriquecer com dados do ViaCEP
+        const cepMatch = mensagemTexto.match(/\b\d{5}-?\d{3}\b/);
+        if (cepMatch) {
+            const dadosCEP = await consultarCEP(cepMatch[0]);
+            if (dadosCEP) {
+                mensagemTexto += `\n[CEP ENCONTRADO: rua=${dadosCEP.logradouro}, bairro=${dadosCEP.bairro}, cidade=${dadosCEP.localidade}, estado=${dadosCEP.uf}]`;
+            } else {
+                mensagemTexto += `\n[CEP NÃO ENCONTRADO]`;
+            }
+        }
 
         if (!conversas.has(chatId)) conversas.set(chatId, []);
         const historico = conversas.get(chatId);

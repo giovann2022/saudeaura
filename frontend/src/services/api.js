@@ -1,14 +1,19 @@
 import axios from 'axios';
 
-// Usar variável de ambiente para a URL da API, ou fallback para localhost
+// Em produção (build), usa URL relativa para o nginx proxy (/api/ → porta 3000)
+// Em desenvolvimento, acessa localhost:3000 diretamente
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000'
+  baseURL: import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token && token !== 'undefined') {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // Em produção, prefixa /api/ para que o nginx encaminhe ao backend
+  if (import.meta.env.PROD) {
+    config.url = '/api' + config.url;
   }
   return config;
 });

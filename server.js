@@ -15,6 +15,16 @@ app.use(express.json());
 
 app.get('/', (req, res) => res.send('🚀 API de Atendimento Ativa e Protegida!'));
 
+// Proxy do QR code do agente WhatsApp
+app.get('/qr', async (req, res) => {
+    try {
+        const r = await require('axios').get('http://localhost:3001/qr', { timeout: 5000 });
+        res.send(r.data);
+    } catch {
+        res.send('<html><body style="font-family:sans-serif;text-align:center;padding:50px"><h2>QR não disponível</h2><p>Aguarde o agente iniciar.</p></body></html>');
+    }
+});
+
 // Middleware de Autenticação JWT
 const verificarToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];

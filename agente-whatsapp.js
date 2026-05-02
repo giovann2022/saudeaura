@@ -1,24 +1,26 @@
 const express = require('express');
 const axios = require('axios');
+const pino = require('pino');
 require('dotenv').config();
+
+const baileys = require('@whiskeysockets/baileys');
+const makeWASocket = baileys.default || baileys.makeWASocket;
+const { useMultiFileAuthState, DisconnectReason, downloadMediaMessage, fetchLatestBaileysVersion } = baileys;
 
 const app = express();
 app.use(express.json());
 
 const PORTA = process.env.AGENTE_PORT || 3001;
-const EVOLUTION_URL = process.env.EVOLUTION_API_URL || 'https://evolution.cinecarneiro.online';
-const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || 'carneiro2026';
-const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'gio';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const CADASTRO_API_URL = process.env.CADASTRO_API_URL || 'http://localhost:3000';
 const CADASTRO_API_KEY = process.env.N8N_WEBHOOK_KEY || 'saudeaura_n8n_2026_secret';
 const EVENTO_ID = parseInt(process.env.EVENTO_ID_ATIVO) || 1;
+const WHATSAPP_PHONE = process.env.WHATSAPP_PHONE;
 
+const logger = pino({ level: 'silent' });
 const conversas = new Map();
+let sock = null;
 
-const EVOLUTION_HEADERS = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
-
-// Datas do evento — preenchidas no startup e atualizadas a cada hora
 let dataDia1 = 'Dia 1';
 let dataDia2 = 'Dia 2';
 
@@ -170,52 +172,19 @@ async function transcreverAudio(base64Audio, mimeType) {
     return resp.data.candidates[0].content.parts[0].text;
 }
 
-async function baixarAudio(messageKey) {
-    const resp = await axios.post(
-        `${EVOLUTION_URL}/chat/getBase64FromMediaMessage/${EVOLUTION_INSTANCE}`,
-        { message: { key: messageKey } },
-        { headers: EVOLUTION_HEADERS, timeout: 15000 }
-    );
-    return { base64: resp.data.base64, mimeType: resp.data.mimetype || 'audio/ogg' };
-}
-
 async function enviarTexto(chatId, texto) {
-    await axios.post(
-        `${EVOLUTION_URL}/message/sendText/${EVOLUTION_INSTANCE}`,
-        { number: chatId, text: texto },
-        { headers: EVOLUTION_HEADERS, timeout: 10000 }
-    );
+    if (!sock) throw new Error('WhatsApp não conectado');
+    await sock.sendMessage(chatId, { text: texto });
 }
 
 async function enviarArquivo(chatId, pdfBase64, filename, caption) {
-    await axios.post(
-        `${EVOLUTION_URL}/message/sendMedia/${EVOLUTION_INSTANCE}`,
-        {
-            number: chatId,
-            mediatype: 'document',
-            mimetype: 'application/pdf',
-            media: pdfBase64,
-            caption,
-            fileName: filename
-        },
-        { headers: EVOLUTION_HEADERS, timeout: 15000 }
-    );
-}
-
-async function marcarLido(chatId, messageId) {
-    await axios.post(
-        `${EVOLUTION_URL}/chat/markMessageAsRead/${EVOLUTION_INSTANCE}`,
-        { readMessages: [{ id: messageId, fromMe: false, remoteJid: chatId }] },
-        { headers: EVOLUTION_HEADERS, timeout: 5000 }
-    ).catch(() => {});
-}
-
-async function iniciarDigitacao(chatId) {
-    await axios.post(
-        `${EVOLUTION_URL}/chat/sendPresence/${EVOLUTION_INSTANCE}`,
-        { number: chatId, options: { delay: 1200, presence: 'composing' } },
-        { headers: EVOLUTION_HEADERS, timeout: 5000 }
-    ).catch(() => {});
+    if (!sock) throw new Error('WhatsApp não conectado');
+    await sock.sendMessage(chatId, {
+        document: Buffer.from(pdfBase64, 'base64'),
+        mimetype: 'application/pdf',
+        fileName: filename,
+        caption: caption
+    });
 }
 
 async function consultarCEP(cep) {
@@ -258,44 +227,34 @@ function getMensagemPosJson(output) {
     return partes.length >= 3 ? partes[2].trim() : 'Que Deus abençoe! 🙏';
 }
 
-// Webhook principal — recebe mensagens do Evolution API
-app.post('/webhook/whatsapp', async (req, res) => {
-    res.sendStatus(200);
-
-    const body = req.body;
-    console.log('[WEBHOOK]', JSON.stringify(body).substring(0, 300));
-
-    if (body?.event !== 'messages.upsert') return;
-
-    const data = body?.data;
-    if (!data) return;
-    if (data.key?.fromMe) return;
-
-    const chatId = data.key?.remoteJid;
-    const messageId = data.key?.id;
-    const messageType = data.messageType;
-
-    if (!chatId) return;
-    if (chatId.includes('@g.us')) return; // ignorar grupos
+async function processarMensagem(msg) {
+    const chatId = msg.key.remoteJid;
+    const messageContent = msg.message || {};
+    const messageType = Object.keys(messageContent)[0];
 
     let mensagemTexto = '';
 
     try {
-        await marcarLido(chatId, messageId);
+        await sock.readMessages([msg.key]).catch(() => {});
 
         if (messageType === 'audioMessage' || messageType === 'pttMessage') {
-            const { base64, mimeType } = await baixarAudio(data.key);
-            mensagemTexto = await transcreverAudio(base64, mimeType);
+            const buffer = await downloadMediaMessage(
+                msg, 'buffer', {},
+                { logger, reuploadRequest: sock.updateMediaMessage }
+            );
+            const base64Audio = buffer.toString('base64');
+            mensagemTexto = await transcreverAudio(base64Audio, 'audio/ogg; codecs=opus');
             console.log(`[${chatId}] Áudio transcrito: ${mensagemTexto.substring(0, 80)}...`);
-        } else if (messageType === 'conversation' || messageType === 'extendedTextMessage') {
-            mensagemTexto = data.message?.conversation || data.message?.extendedTextMessage?.text || '';
+        } else if (messageType === 'conversation') {
+            mensagemTexto = messageContent.conversation || '';
+        } else if (messageType === 'extendedTextMessage') {
+            mensagemTexto = messageContent.extendedTextMessage?.text || '';
         } else {
             return;
         }
 
         if (!mensagemTexto.trim()) return;
 
-        // Detectar CEP na mensagem e enriquecer com dados do ViaCEP
         const cepMatch = mensagemTexto.match(/\b\d{5}-?\d{3}\b/);
         if (cepMatch) {
             const dadosCEP = await consultarCEP(cepMatch[0]);
@@ -311,9 +270,10 @@ app.post('/webhook/whatsapp', async (req, res) => {
         historico.push({ role: 'user', content: mensagemTexto });
         if (historico.length > 20) historico.splice(0, historico.length - 20);
 
-        await iniciarDigitacao(chatId);
+        await sock.sendPresenceUpdate('composing', chatId).catch(() => {});
         const resposta = await chamarGemini(historico);
         historico.push({ role: 'model', content: resposta });
+        await sock.sendPresenceUpdate('paused', chatId).catch(() => {});
 
         if (resposta.includes('[FINALIZADO]')) {
             const dados = parsearDadosCadastro(resposta);
@@ -349,16 +309,81 @@ app.post('/webhook/whatsapp', async (req, res) => {
         console.error(`[${chatId}] Erro:`, err.message);
         await enviarTexto(chatId, 'Desculpe, ocorreu um erro. Por favor, tente novamente em instantes. 🙏').catch(() => {});
     }
-});
+}
 
-app.get('/health', (req, res) => res.json({ status: 'ok', conversas_ativas: conversas.size, dia1: dataDia1, dia2: dataDia2 }));
+async function conectarWhatsApp() {
+    const { state, saveCreds } = await useMultiFileAuthState('./auth_baileys');
+    const { version } = await fetchLatestBaileysVersion();
 
-// Carregar datas no startup e atualizar a cada hora
+    sock = makeWASocket({
+        version,
+        auth: state,
+        logger,
+        printQRInTerminal: false,
+        browser: ['AnaBot', 'Safari', '16.0'],
+        markOnlineOnConnect: false,
+        generateHighQualityLinkPreview: false,
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr } = update;
+
+        if (qr && WHATSAPP_PHONE) {
+            try {
+                await new Promise(r => setTimeout(r, 3000));
+                const code = await sock.requestPairingCode(WHATSAPP_PHONE.replace(/\D/g, ''));
+                console.log(`\n🔐 Código de pareamento: ${code}`);
+                console.log(`   No WhatsApp: Configurações > Dispositivos vinculados > Vincular dispositivo > Código de 8 dígitos\n`);
+            } catch (e) {
+                console.error('Erro ao solicitar código de pareamento:', e.message);
+            }
+        }
+
+        if (connection === 'close') {
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            console.log(`Conexão encerrada (código ${statusCode}). Reconectando: ${shouldReconnect}`);
+            if (shouldReconnect) {
+                setTimeout(conectarWhatsApp, 5000);
+            } else {
+                console.log('Sessão encerrada. Delete a pasta auth_baileys e reinicie para reconectar.');
+            }
+        } else if (connection === 'open') {
+            console.log('✅ WhatsApp conectado!');
+        }
+    });
+
+    sock.ev.on('messages.upsert', async ({ messages, type }) => {
+        if (type !== 'notify') return;
+
+        for (const msg of messages) {
+            if (msg.key.fromMe) continue;
+            if (!msg.message) continue;
+            if (msg.key.remoteJid?.includes('@g.us')) continue;
+
+            console.log(`[MSG] De: ${msg.key.remoteJid}`);
+            processarMensagem(msg).catch(err => {
+                console.error(`[${msg.key.remoteJid}] Erro não tratado:`, err.message);
+            });
+        }
+    });
+}
+
+app.get('/health', (req, res) => res.json({
+    status: 'ok',
+    whatsapp: sock ? 'conectado' : 'desconectado',
+    conversas_ativas: conversas.size,
+    dia1: dataDia1,
+    dia2: dataDia2
+}));
+
 carregarDatasEvento();
 setInterval(carregarDatasEvento, 60 * 60 * 1000);
 
+conectarWhatsApp().catch(err => console.error('Erro ao iniciar WhatsApp:', err));
+
 app.listen(PORTA, () => {
-    console.log(`🤖 Agente WhatsApp rodando na porta ${PORTA}`);
-    console.log(`   Webhook: POST http://localhost:${PORTA}/webhook/whatsapp`);
-    console.log(`   Evolution API: ${EVOLUTION_URL} | Instância: ${EVOLUTION_INSTANCE}`);
+    console.log(`🤖 Agente WhatsApp (Baileys) rodando na porta ${PORTA}`);
 });

@@ -387,7 +387,6 @@ async function conectarWhatsApp() {
                     conversasPausadas.add(chatId);
                     conversas.delete(chatId);
                     console.log(`[ADMIN] Bot pausado para ${chatId}`);
-                    await sock.sendMessage(chatId, { text: '⏸️ Bot pausado. Você está no controle. Digite !retoma para reativar.' }).catch(() => {});
                 } else if (cmd === '!retoma') {
                     conversasPausadas.delete(chatId);
                     console.log(`[ADMIN] Bot retomado para ${chatId}`);

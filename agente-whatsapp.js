@@ -383,6 +383,8 @@ async function conectarWhatsApp() {
             // Comandos de admin (mensagens enviadas por você)
             if (msg.key.fromMe && texto.startsWith('!')) {
                 const cmd = texto.trim().toLowerCase();
+                // Apaga o comando do chat para o paciente não ver
+                await sock.sendMessage(chatId, { delete: msg.key }).catch(() => {});
                 if (cmd === '!pausa') {
                     conversasPausadas.add(chatId);
                     conversas.delete(chatId);
@@ -390,7 +392,6 @@ async function conectarWhatsApp() {
                 } else if (cmd === '!retoma') {
                     conversasPausadas.delete(chatId);
                     console.log(`[ADMIN] Bot retomado para ${chatId}`);
-                    await sock.sendMessage(chatId, { text: '▶️ Bot reativado. Olá! Posso ajudar você com o cadastro? 😊' }).catch(() => {});
                 } else if (cmd === '!limpa') {
                     conversas.delete(chatId);
                     conversasPausadas.delete(chatId);

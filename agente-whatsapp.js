@@ -146,22 +146,28 @@ async function chamarGemini(mensagens) {
         parts: [{ text: m.content }]
     }));
 
-    const resp = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-            system_instruction: { parts: [{ text: gerarSystemPrompt() }] },
-            contents,
-            generationConfig: { temperature: 0.4 }
-        },
-        { timeout: 30000 }
-    );
-
-    return resp.data.candidates[0].content.parts[0].text;
+    try {
+        const resp = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+                system_instruction: { parts: [{ text: gerarSystemPrompt() }] },
+                contents,
+                generationConfig: { temperature: 0.4 }
+            },
+            { timeout: 30000 }
+        );
+        return resp.data.candidates[0].content.parts[0].text;
+    } catch (err) {
+        const status = err.response?.status;
+        const body = JSON.stringify(err.response?.data).substring(0, 300);
+        console.error(`[Gemini] Erro ${status}: ${body}`);
+        throw err;
+    }
 }
 
 async function transcreverAudio(base64Audio, mimeType) {
     const resp = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
             contents: [{
                 parts: [

@@ -263,6 +263,8 @@ app.post('/webhook/whatsapp', async (req, res) => {
     res.sendStatus(200);
 
     const body = req.body;
+    console.log('[WEBHOOK]', JSON.stringify(body).substring(0, 300));
+
     if (body?.event !== 'messages.upsert') return;
 
     const data = body?.data;

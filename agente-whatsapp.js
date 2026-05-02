@@ -7,6 +7,7 @@ const baileys = require('@whiskeysockets/baileys');
 const makeWASocket = baileys.default || baileys.makeWASocket;
 const { useMultiFileAuthState, DisconnectReason, downloadMediaMessage, fetchLatestBaileysVersion } = baileys;
 const QRCode = require('qrcode');
+const qrTerminal = require('qrcode-terminal');
 
 const app = express();
 app.use(express.json());
@@ -334,7 +335,8 @@ async function conectarWhatsApp() {
 
         if (qr) {
             ultimoQR = qr;
-            console.log(`\n📱 QR Code disponível em: http://129.153.78.106:3001/qr\n`);
+            qrTerminal.generate(qr, { small: true });
+            console.log('\n📱 Escaneie o QR code acima com o WhatsApp Business\n');
         }
 
         if (connection === 'close') {

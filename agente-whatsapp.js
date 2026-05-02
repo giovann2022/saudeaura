@@ -6,14 +6,17 @@ const app = express();
 app.use(express.json());
 
 const PORTA = process.env.AGENTE_PORT || 3001;
-const WAHA_URL = process.env.WAHA_API_URL || 'http://localhost:3000';
+const EVOLUTION_URL = process.env.EVOLUTION_API_URL || 'https://evolution.cinecarneiro.online';
+const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY || 'carneiro2026';
+const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'gio';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const CADASTRO_API_URL = process.env.CADASTRO_API_URL || 'http://localhost:3000';
 const CADASTRO_API_KEY = process.env.N8N_WEBHOOK_KEY || 'saudeaura_n8n_2026_secret';
 const EVENTO_ID = parseInt(process.env.EVENTO_ID_ATIVO) || 1;
 
-// Memória de conversas: chatId → array de mensagens
 const conversas = new Map();
+
+const EVOLUTION_HEADERS = { apikey: EVOLUTION_KEY, 'Content-Type': 'application/json' };
 
 const SYSTEM_PROMPT = `Você é a Ana, voluntária da equipe de cadastro do Saúde Aura. Você faz os cadastros para o evento de atendimento espiritual pelo WhatsApp.
 
@@ -131,55 +134,52 @@ async function transcreverAudio(base64Audio, mimeType) {
     return resp.data.candidates[0].content.parts[0].text;
 }
 
-async function baixarAudio(session, chatId, messageId) {
-    const resp = await axios.get(
-        `${WAHA_URL}/api/${session}/chats/${chatId}/messages/${messageId}/download`,
-        { responseType: 'arraybuffer', timeout: 15000 }
+async function baixarAudio(messageKey) {
+    const resp = await axios.post(
+        `${EVOLUTION_URL}/chat/getBase64FromMediaMessage/${EVOLUTION_INSTANCE}`,
+        { message: { key: messageKey } },
+        { headers: EVOLUTION_HEADERS, timeout: 15000 }
     );
-    const buffer = Buffer.from(resp.data);
-    const contentType = resp.headers['content-type'] || 'audio/ogg';
-    return { base64: buffer.toString('base64'), mimeType: contentType };
+    return { base64: resp.data.base64, mimeType: resp.data.mimetype || 'audio/ogg' };
 }
 
-async function enviarTexto(session, chatId, texto) {
-    await axios.post(`${WAHA_URL}/api/sendText`, {
-        session,
-        chatId,
-        text: texto
-    }, { timeout: 10000 }).catch(err => {
-        // fallback para rota alternativa
-        return axios.post(`${WAHA_URL}/api/${session}/sendText`, {
-            chatId,
-            text: texto
-        }, { timeout: 10000 });
-    });
+async function enviarTexto(chatId, texto) {
+    await axios.post(
+        `${EVOLUTION_URL}/message/sendText/${EVOLUTION_INSTANCE}`,
+        { number: chatId, text: texto },
+        { headers: EVOLUTION_HEADERS, timeout: 10000 }
+    );
 }
 
-async function enviarArquivo(session, chatId, pdfBase64, filename, caption) {
-    await axios.post(`${WAHA_URL}/api/sendFile`, {
-        session,
-        chatId,
-        file: { mimetype: 'application/pdf', filename, data: pdfBase64 },
-        caption
-    }, { timeout: 15000 }).catch(() => {
-        return axios.post(`${WAHA_URL}/api/${session}/sendFile`, {
-            chatId,
-            file: { mimetype: 'application/pdf', filename, data: pdfBase64 },
-            caption
-        }, { timeout: 15000 });
-    });
+async function enviarArquivo(chatId, pdfBase64, filename, caption) {
+    await axios.post(
+        `${EVOLUTION_URL}/message/sendMedia/${EVOLUTION_INSTANCE}`,
+        {
+            number: chatId,
+            mediatype: 'document',
+            mimetype: 'application/pdf',
+            media: pdfBase64,
+            caption,
+            fileName: filename
+        },
+        { headers: EVOLUTION_HEADERS, timeout: 15000 }
+    );
 }
 
-async function marcarLido(session, chatId, messageId) {
-    await axios.post(`${WAHA_URL}/api/${session}/chats/${chatId}/messages/${messageId}/markSeen`, {}, { timeout: 5000 }).catch(() => {});
+async function marcarLido(chatId, messageId) {
+    await axios.post(
+        `${EVOLUTION_URL}/chat/markMessageAsRead/${EVOLUTION_INSTANCE}`,
+        { readMessages: [{ id: messageId, fromMe: false, remoteJid: chatId }] },
+        { headers: EVOLUTION_HEADERS, timeout: 5000 }
+    ).catch(() => {});
 }
 
-async function iniciarDigitacao(session, chatId) {
-    await axios.post(`${WAHA_URL}/api/${session}/startTyping`, { chatId }, { timeout: 5000 }).catch(() => {});
-}
-
-async function pararDigitacao(session, chatId) {
-    await axios.post(`${WAHA_URL}/api/${session}/stopTyping`, { chatId }, { timeout: 5000 }).catch(() => {});
+async function iniciarDigitacao(chatId) {
+    await axios.post(
+        `${EVOLUTION_URL}/chat/sendPresence/${EVOLUTION_INSTANCE}`,
+        { number: chatId, options: { delay: 1200, presence: 'composing' } },
+        { headers: EVOLUTION_HEADERS, timeout: 5000 }
+    ).catch(() => {});
 }
 
 async function cadastrarPaciente(dados) {
@@ -210,117 +210,90 @@ function getMensagemPosJson(output) {
     return partes.length >= 3 ? partes[2].trim() : 'Que Deus abençoe! 🙏';
 }
 
-// Webhook principal — recebe mensagens do WAHA
+// Webhook principal — recebe mensagens do Evolution API
 app.post('/webhook/whatsapp', async (req, res) => {
-    res.sendStatus(200); // responder imediatamente ao WAHA
+    res.sendStatus(200);
 
     const body = req.body;
-    const event = body?.event;
-    const payload = body?.payload;
-    const session = body?.session;
+    if (body?.event !== 'messages.upsert') return;
 
-    if (!payload || event !== 'message') return;
-    if (payload.fromMe) return; // ignorar mensagens do próprio bot
+    const data = body?.data;
+    if (!data) return;
+    if (data.key?.fromMe) return;
 
-    const chatId = payload._data?.from || payload.from;
-    const messageId = payload.id;
-    const hasMedia = payload.hasMedia;
-    const messageType = payload._data?.type;
-    const pushName = payload._data?.notifyName || '';
+    const chatId = data.key?.remoteJid;
+    const messageId = data.key?.id;
+    const messageType = data.messageType;
 
     if (!chatId) return;
+    if (chatId.includes('@g.us')) return; // ignorar grupos
 
     let mensagemTexto = '';
 
     try {
-        // Marcar como lido
-        await marcarLido(session, chatId, messageId);
+        await marcarLido(chatId, messageId);
 
-        if (hasMedia && (messageType === 'ptt' || messageType === 'audio')) {
-            // Transcrever áudio
-            const { base64, mimeType } = await baixarAudio(session, chatId, messageId);
+        if (messageType === 'audioMessage' || messageType === 'pttMessage') {
+            const { base64, mimeType } = await baixarAudio(data.key);
             mensagemTexto = await transcreverAudio(base64, mimeType);
             console.log(`[${chatId}] Áudio transcrito: ${mensagemTexto.substring(0, 80)}...`);
-        } else if (!hasMedia && payload.body) {
-            mensagemTexto = payload.body;
+        } else if (messageType === 'conversation' || messageType === 'extendedTextMessage') {
+            mensagemTexto = data.message?.conversation || data.message?.extendedTextMessage?.text || '';
         } else {
-            return; // ignorar outros tipos de mídia
+            return;
         }
 
-        // Buscar ou criar histórico da conversa
-        if (!conversas.has(chatId)) {
-            conversas.set(chatId, []);
-        }
+        if (!mensagemTexto.trim()) return;
+
+        if (!conversas.has(chatId)) conversas.set(chatId, []);
         const historico = conversas.get(chatId);
         historico.push({ role: 'user', content: mensagemTexto });
+        if (historico.length > 20) historico.splice(0, historico.length - 20);
 
-        // Limitar histórico a 20 mensagens (10 pares)
-        if (historico.length > 20) {
-            historico.splice(0, historico.length - 20);
-        }
-
-        // Indicar digitação enquanto o Gemini processa
-        await iniciarDigitacao(session, chatId);
-
+        await iniciarDigitacao(chatId);
         const resposta = await chamarGemini(historico);
         historico.push({ role: 'model', content: resposta });
-
-        await pararDigitacao(session, chatId);
 
         if (resposta.includes('[FINALIZADO]')) {
             const dados = parsearDadosCadastro(resposta);
             if (!dados) {
-                await enviarTexto(session, chatId, 'Desculpe, houve um problema ao processar seus dados. Pode tentar novamente? 🙏');
+                await enviarTexto(chatId, 'Desculpe, houve um problema ao processar seus dados. Pode tentar novamente? 🙏');
                 return;
             }
 
             const mensagemFinal = getMensagemPosJson(resposta);
-
-            const resultado = await cadastrarPaciente({
-                evento_id: EVENTO_ID,
-                ...dados,
-                whatsapp_chat_id: chatId
-            });
+            const resultado = await cadastrarPaciente({ evento_id: EVENTO_ID, ...dados, whatsapp_chat_id: chatId });
 
             if (!resultado.sucesso) {
                 const erroMsg = resultado.erro || 'As vagas para o dia selecionado podem estar esgotadas.';
-                await enviarTexto(session, chatId,
-                    `😔 Ops! Não conseguimos finalizar seu cadastro.\n\n${erroMsg}\n\nPor favor, entre em contato pelo número oficial do Saúde Aura. Pedimos desculpas pelo transtorno. 🙏`
-                );
-                conversas.delete(chatId); // limpar conversa para recomeçar
+                await enviarTexto(chatId, `😔 Ops! Não conseguimos finalizar seu cadastro.\n\n${erroMsg}\n\nPor favor, entre em contato pelo número oficial do Saúde Aura. Pedimos desculpas pelo transtorno. 🙏`);
+                conversas.delete(chatId);
                 return;
             }
 
             const { senha, pdf_base64, pdf_filename } = resultado;
+            await enviarTexto(chatId, `${mensagemFinal}\n\n✅ *Cadastro confirmado!*\n📋 Sua senha de atendimento é: *${senha}*\n\nGuarde este número! Enviando seu comprovante... 📄`);
 
-            // Enviar mensagem de confirmação com senha
-            await enviarTexto(session, chatId,
-                `${mensagemFinal}\n\n✅ *Cadastro confirmado!*\n📋 Sua senha de atendimento é: *${senha}*\n\nGuarde este número! Enviando seu comprovante... 📄`
-            );
-
-            // Enviar PDF
             if (pdf_base64) {
-                await enviarArquivo(session, chatId, pdf_base64, pdf_filename || `Comprovante_Senha_${senha}.pdf`, `📋 Comprovante de Cadastro - Senha ${senha}`);
+                await enviarArquivo(chatId, pdf_base64, pdf_filename || `Comprovante_Senha_${senha}.pdf`, `📋 Comprovante de Cadastro - Senha ${senha}`);
             }
 
-            conversas.delete(chatId); // limpar conversa após cadastro concluído
+            conversas.delete(chatId);
             console.log(`[${chatId}] Cadastro concluído: ${dados.nome} | Senha ${senha}`);
         } else {
-            await enviarTexto(session, chatId, resposta);
+            await enviarTexto(chatId, resposta);
         }
 
     } catch (err) {
         console.error(`[${chatId}] Erro:`, err.message);
-        await pararDigitacao(session, chatId).catch(() => {});
-        await enviarTexto(session, chatId, 'Desculpe, ocorreu um erro. Por favor, tente novamente em instantes. 🙏').catch(() => {});
+        await enviarTexto(chatId, 'Desculpe, ocorreu um erro. Por favor, tente novamente em instantes. 🙏').catch(() => {});
     }
 });
 
-// Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', conversas_ativas: conversas.size }));
 
 app.listen(PORTA, () => {
     console.log(`🤖 Agente WhatsApp rodando na porta ${PORTA}`);
     console.log(`   Webhook: POST http://localhost:${PORTA}/webhook/whatsapp`);
-    console.log(`   Configurar no WAHA: aponte o webhook para esta URL`);
+    console.log(`   Evolution API: ${EVOLUTION_URL} | Instância: ${EVOLUTION_INSTANCE}`);
 });

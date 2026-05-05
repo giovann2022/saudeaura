@@ -121,10 +121,12 @@ app.post('/api/webhook/n8n', async (req, res) => {
         const ev = (await pool.query('SELECT * FROM eventos WHERE id = $1', [evento_id])).rows[0];
         if (!ev) return res.status(404).json({ erro: 'Evento não encontrado' });
 
-        const ocup = parseInt((await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento])).rows[0].count);
+        const ocup = parseInt((await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [evento_id, dia_atendimento])).rows[0].count);
 
-        if (dia_atendimento === 'Dia 1' && ocup >= ev.vagas_dia1) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 1' });
-        if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 2' });
+        if (tipo_tratamento !== 'Socorro Espiritual') {
+            if (dia_atendimento === 'Dia 1' && ocup >= ev.vagas_dia1) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 1' });
+            if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 2' });
+        }
 
         const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
         const senha = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
@@ -163,8 +165,8 @@ app.get('/api/webhook/n8n/eventos', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2 FROM eventos ORDER BY id DESC');
         const eventos = await Promise.all(result.rows.map(async (ev) => {
-            const c1 = parseInt((await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [ev.id, 'Dia 1'])).rows[0].count);
-            const c2 = parseInt((await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [ev.id, 'Dia 2'])).rows[0].count);
+            const c1 = parseInt((await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [ev.id, 'Dia 1'])).rows[0].count);
+            const c2 = parseInt((await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [ev.id, 'Dia 2'])).rows[0].count);
             return { ...ev, vagas_disponiveis_dia1: ev.vagas_dia1 - c1, vagas_disponiveis_dia2: ev.vagas_dia2 - c2 };
         }));
         res.json(eventos);
@@ -211,8 +213,8 @@ app.get('/eventos', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM eventos ORDER BY id DESC');
         const eventosComContagem = await Promise.all(result.rows.map(async (ev) => {
-            const c1 = await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [ev.id, 'Dia 1']);
-            const c2 = await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [ev.id, 'Dia 2']);
+            const c1 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [ev.id, 'Dia 1']);
+            const c2 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [ev.id, 'Dia 2']);
             return { ...ev, ocupadas_dia1: parseInt(c1.rows[0].count), ocupadas_dia2: parseInt(c2.rows[0].count) };
         }));
         res.json(eventosComContagem);
@@ -256,10 +258,12 @@ app.post('/pacientes', async (req, res) => {
     const { evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3 } = req.body;
     try {
         const ev = (await pool.query('SELECT * FROM eventos WHERE id = $1', [evento_id])).rows[0];
-        const ocup = parseInt((await pool.query('SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento])).rows[0].count);
-        
-        if (dia_atendimento === 'Dia 1' && ocup >= ev.vagas_dia1) return res.status(400).json({ erro: '🚫 Vagas esgotadas D1' });
-        if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: '🚫 Vagas esgotadas D2' });
+        const ocup = parseInt((await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [evento_id, dia_atendimento])).rows[0].count);
+
+        if (tipo_tratamento !== 'Socorro Espiritual') {
+            if (dia_atendimento === 'Dia 1' && ocup >= ev.vagas_dia1) return res.status(400).json({ erro: '🚫 Vagas esgotadas D1' });
+            if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: '🚫 Vagas esgotadas D2' });
+        }
         
         const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
         let s = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;

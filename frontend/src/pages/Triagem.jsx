@@ -4,6 +4,13 @@ import api from '../services/api';
 import { imprimirFichaUnica, imprimirFichasLote } from '../services/pdfService';
 import TopMenu from '../components/TopMenu';
 
+const CAMPOS_VAZIOS = {
+  nome: '', telefone: '', nascimento: '', idade: '',
+  rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '',
+  queixa1: '', queixa2: '', queixa3: '',
+  dia_atendimento: 'Dia 1', tipo_tratamento: 'Cura Espiritual', evento_id: '',
+};
+
 export default function Triagem() {
   const [eventos, setEventos] = useState([]);
   const [eventoSelecionadoId, setEventoSelecionadoId] = useState('');
@@ -11,6 +18,9 @@ export default function Triagem() {
   const [listaPacientes, setListaPacientes] = useState([]);
   const [termoBusca, setTermoBusca] = useState('');
   const [carregando, setCarregando] = useState(true);
+  const [editando, setEditando] = useState(null);
+  const [form, setForm] = useState(CAMPOS_VAZIOS);
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     carregarEventos();
@@ -42,6 +52,36 @@ export default function Triagem() {
     }
   };
 
+  const abrirEdicao = (p) => {
+    setForm({
+      nome: p.nome || '', telefone: p.telefone || '',
+      nascimento: p.nascimento ? p.nascimento.slice(0, 10) : '', idade: p.idade || '',
+      rua: p.endereco || '', numero: p.numero || '', complemento: p.complemento || '',
+      bairro: p.bairro || '', cidade: p.cidade || '', estado: p.estado || '',
+      queixa1: p.queixa1 || '', queixa2: p.queixa2 || '', queixa3: p.queixa3 || '',
+      dia_atendimento: p.dia_atendimento, tipo_tratamento: p.tipo_tratamento, evento_id: p.evento_id,
+    });
+    setEditando(p);
+  };
+
+  const salvarEdicao = async () => {
+    if (!form.nome.trim() || !form.queixa1.trim()) {
+      toast.error('Nome e queixa principal são obrigatórios');
+      return;
+    }
+    setSalvando(true);
+    try {
+      await api.put(`/pacientes/${editando.id}`, form);
+      toast.success('Paciente atualizado');
+      setEditando(null);
+      carregarPacientes();
+    } catch {
+      toast.error('Erro ao salvar alterações');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const deletarPaciente = async (id) => {
     if (confirm('Remover paciente definitivamente?')) {
       try {
@@ -67,6 +107,7 @@ export default function Triagem() {
   const eventoAtual = eventos.find(e => e.id == eventoSelecionadoId);
 
   return (
+    <>
     <div className="app-wrapper">
       <div className="main-container config-view">
         <TopMenu />
@@ -167,6 +208,7 @@ export default function Triagem() {
                       <td>{p.nome}</td>
                       <td className="action-buttons">
                         <button className="btn-action btn-print" onClick={() => imprimirFichaUnica(p)} title="Imprimir Prontuário">📄</button>
+                        <button className="btn-action btn-edit" onClick={() => abrirEdicao(p)} title="Editar Registro">✏️</button>
                         <button className="btn-action btn-delete" onClick={() => deletarPaciente(p.id)} title="Excluir Registro">🗑️</button>
                       </td>
                     </tr>
@@ -178,5 +220,115 @@ export default function Triagem() {
         </div>
       </div>
     </div>
+
+    {/* Modal de edição */}
+    {editando && (
+      <div style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px'
+      }}>
+        <div style={{
+          background: 'var(--bg-card)', borderRadius: '12px', padding: '24px',
+          width: '100%', maxWidth: '620px', maxHeight: '90vh', overflowY: 'auto',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>✏️ Editar — Senha {editando.senha_atendimento}</h3>
+            <button className="btn-action" onClick={() => setEditando(null)} style={{ fontSize: '1.2rem' }}>✕</button>
+          </div>
+
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dia</label>
+                <select className="search-input" value={form.dia_atendimento} onChange={e => setForm(f => ({ ...f, dia_atendimento: e.target.value }))}>
+                  <option>Dia 1</option>
+                  <option>Dia 2</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Tipo de Tratamento</label>
+                <select className="search-input" value={form.tipo_tratamento} onChange={e => setForm(f => ({ ...f, tipo_tratamento: e.target.value }))}>
+                  <option>Cura Espiritual</option>
+                  <option>Socorro Espiritual</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nome *</label>
+              <input className="search-input" style={{ width: '100%' }} value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Telefone</label>
+                <input className="search-input" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Nascimento</label>
+                <input type="date" className="search-input" value={form.nascimento} onChange={e => setForm(f => ({ ...f, nascimento: e.target.value }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Idade</label>
+                <input className="search-input" type="number" value={form.idade} onChange={e => setForm(f => ({ ...f, idade: e.target.value }))} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Rua</label>
+                <input className="search-input" value={form.rua} onChange={e => setForm(f => ({ ...f, rua: e.target.value }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Número</label>
+                <input className="search-input" value={form.numero} onChange={e => setForm(f => ({ ...f, numero: e.target.value }))} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Complemento</label>
+                <input className="search-input" value={form.complemento} onChange={e => setForm(f => ({ ...f, complemento: e.target.value }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Bairro</label>
+                <input className="search-input" value={form.bairro} onChange={e => setForm(f => ({ ...f, bairro: e.target.value }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Cidade</label>
+                <input className="search-input" value={form.cidade} onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))} />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Estado (UF)</label>
+              <input className="search-input" style={{ maxWidth: '80px' }} value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))} maxLength={2} />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Queixa 1 *</label>
+              <input className="search-input" style={{ width: '100%' }} value={form.queixa1} onChange={e => setForm(f => ({ ...f, queixa1: e.target.value }))} />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Queixa 2</label>
+              <input className="search-input" style={{ width: '100%' }} value={form.queixa2} onChange={e => setForm(f => ({ ...f, queixa2: e.target.value }))} />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Queixa 3</label>
+              <input className="search-input" style={{ width: '100%' }} value={form.queixa3} onChange={e => setForm(f => ({ ...f, queixa3: e.target.value }))} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button className="btn-secondary" onClick={() => setEditando(null)} disabled={salvando}>Cancelar</button>
+              <button className="btn-primary" onClick={salvarEdicao} disabled={salvando}>
+                {salvando ? 'Salvando...' : '💾 Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

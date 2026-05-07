@@ -93,7 +93,9 @@ export default function Triagem() {
       const res = await api.put(`/pacientes/${p.id}`, {
         ...p, rua: p.endereco, dia_atendimento: novoDia,
       });
+      const pacienteAtualizado = { ...p, dia_atendimento: novoDia, senha_atendimento: res.data.nova_senha };
       toast.success(`Movido para ${novoDia} — nova senha: ${res.data.nova_senha}`);
+      imprimirFichaUnica(pacienteAtualizado);
       carregarPacientes();
     } catch {
       toast.error('Erro ao trocar dia');
@@ -342,6 +344,7 @@ export default function Triagem() {
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button className="btn-secondary" onClick={() => setEditando(null)} disabled={salvando}>Cancelar</button>
+              <button className="btn-secondary" onClick={() => imprimirFichaUnica(editando)} disabled={salvando} title="Imprimir ficha atual">📄 Imprimir</button>
               <button className="btn-primary" onClick={salvarEdicao} disabled={salvando}>
                 {salvando ? 'Salvando...' : '💾 Salvar'}
               </button>

@@ -71,14 +71,32 @@ export default function Triagem() {
     }
     setSalvando(true);
     try {
-      await api.put(`/pacientes/${editando.id}`, form);
-      toast.success('Paciente atualizado');
+      const res = await api.put(`/pacientes/${editando.id}`, form);
+      if (res.data.nova_senha) {
+        toast.success(`Paciente atualizado — nova senha: ${res.data.nova_senha}`);
+      } else {
+        toast.success('Paciente atualizado');
+      }
       setEditando(null);
       carregarPacientes();
     } catch {
       toast.error('Erro ao salvar alterações');
     } finally {
       setSalvando(false);
+    }
+  };
+
+  const trocarDia = async (p) => {
+    const novoDia = p.dia_atendimento === 'Dia 1' ? 'Dia 2' : 'Dia 1';
+    if (!confirm(`Mover ${p.nome} para ${novoDia}? Uma nova senha será gerada.`)) return;
+    try {
+      const res = await api.put(`/pacientes/${p.id}`, {
+        ...p, rua: p.endereco, dia_atendimento: novoDia,
+      });
+      toast.success(`Movido para ${novoDia} — nova senha: ${res.data.nova_senha}`);
+      carregarPacientes();
+    } catch {
+      toast.error('Erro ao trocar dia');
     }
   };
 
@@ -209,6 +227,9 @@ export default function Triagem() {
                       <td className="action-buttons">
                         <button className="btn-action btn-print" onClick={() => imprimirFichaUnica(p)} title="Imprimir Prontuário">📄</button>
                         <button className="btn-action btn-edit" onClick={() => abrirEdicao(p)} title="Editar Registro">✏️</button>
+                        <button className="btn-action" onClick={() => trocarDia(p)} title={`Mover para ${p.dia_atendimento === 'Dia 1' ? 'Dia 2' : 'Dia 1'}`} style={{ color: '#7c3aed' }}>
+                          {p.dia_atendimento === 'Dia 1' ? '2️⃣' : '1️⃣'}
+                        </button>
                         <button className="btn-action btn-delete" onClick={() => deletarPaciente(p.id)} title="Excluir Registro">🗑️</button>
                       </td>
                     </tr>

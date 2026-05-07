@@ -277,16 +277,18 @@ app.post('/pacientes', async (req, res) => {
 app.put('/pacientes/:id', async (req, res) => {
     const { evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3 } = req.body;
     try {
-        const atual = (await pool.query('SELECT dia_atendimento, evento_id FROM pacientes WHERE id = $1', [req.params.id])).rows[0];
-        let nova_senha = null;
-        if (atual && (atual.dia_atendimento !== dia_atendimento || atual.evento_id != evento_id)) {
+        const atual = (await pool.query('SELECT dia_atendimento, evento_id, senha_atendimento FROM pacientes WHERE id = $1', [req.params.id])).rows[0];
+        const diaMudou = atual && (atual.dia_atendimento !== dia_atendimento || String(atual.evento_id) !== String(evento_id));
+        let senha_final = atual ? atual.senha_atendimento : 1;
+        if (diaMudou) {
             const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
-            nova_senha = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
+            senha_final = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
         }
-        const senhaClause = nova_senha !== null ? `, senha_atendimento=${nova_senha}` : '';
-        await pool.query(`UPDATE pacientes SET evento_id=$1, dia_atendimento=$2, tipo_tratamento=$3, nome=$4, telefone=$5, nascimento=$6, idade=$7, endereco=$8, numero=$9, complemento=$10, bairro=$11, cidade=$12, estado=$13, queixa1=$14, queixa2=$15, queixa3=$16${senhaClause} WHERE id=$17`,
-        [evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3, req.params.id]);
-        res.json({ mensagem: '✅ Atualizado!', nova_senha });
+        await pool.query(
+            `UPDATE pacientes SET evento_id=$1, dia_atendimento=$2, tipo_tratamento=$3, nome=$4, telefone=$5, nascimento=$6, idade=$7, endereco=$8, numero=$9, complemento=$10, bairro=$11, cidade=$12, estado=$13, queixa1=$14, queixa2=$15, queixa3=$16, senha_atendimento=$17 WHERE id=$18`,
+            [evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3, senha_final, req.params.id]
+        );
+        res.json({ mensagem: '✅ Atualizado!', nova_senha: diaMudou ? senha_final : null });
     } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 

@@ -33,7 +33,7 @@ export default function Dashboard() {
     return `${p[2]}/${p[1]}/${p[0]}`;
   };
 
-  const renderProgressBar = (ocupadas, totais) => {
+  const renderProgressBar = (ocupadas, totais, socorro) => {
     const p = totais > 0 ? (ocupadas / totais) * 100 : 0;
     const percent = p > 100 ? 100 : p;
     return (
@@ -47,8 +47,9 @@ export default function Dashboard() {
         <div className="progress-bg">
           <div className="progress-fill" style={{ width: `${percent}%`, background: percent > 90 ? 'var(--danger)' : '' }}></div>
         </div>
-        <div style={{ marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Vagas Livres: <strong style={{color: 'var(--accent)'}}>{totais - ocupadas}</strong>
+        <div style={{ marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '16px' }}>
+          <span>Vagas Livres: <strong style={{color: 'var(--accent)'}}>{totais - ocupadas}</strong></span>
+          <span>Socorro Espiritual: <strong style={{color: '#7c3aed'}}>{socorro ?? 0}</strong></span>
         </div>
       </div>
     );
@@ -112,15 +113,15 @@ export default function Dashboard() {
                       <span className="day-label">🗓️ Dia 1</span>
                       <span className="day-date">{formatarDataBR(eventoAtual.data_dia1)}</span>
                     </div>
-                    {renderProgressBar(eventoAtual.ocupadas_dia1, eventoAtual.vagas_dia1)}
+                    {renderProgressBar(eventoAtual.ocupadas_dia1, eventoAtual.vagas_dia1, eventoAtual.socorro_dia1)}
                   </div>
-                  
+
                   <div>
                     <div className="day-header">
                       <span className="day-label">🗓️ Dia 2</span>
                       <span className="day-date">{formatarDataBR(eventoAtual.data_dia2)}</span>
                     </div>
-                    {renderProgressBar(eventoAtual.ocupadas_dia2, eventoAtual.vagas_dia2)}
+                    {renderProgressBar(eventoAtual.ocupadas_dia2, eventoAtual.vagas_dia2, eventoAtual.socorro_dia2)}
                   </div>
                 </div>
               </div>

@@ -94,7 +94,7 @@ export default function Triagem() {
         ...p, rua: p.endereco, dia_atendimento: novoDia,
       });
       const pacienteAtualizado = { ...p, dia_atendimento: novoDia, senha_atendimento: res.data.nova_senha };
-      toast.success(`Movido para ${novoDia} — nova senha: ${res.data.nova_senha}`);
+      toast.success(res.data.nova_senha ? `Movido para ${novoDia} — nova senha: ${res.data.nova_senha}` : `Movido para ${novoDia}`);
       imprimirFichaUnica(pacienteAtualizado);
       carregarPacientes();
     } catch {
@@ -222,7 +222,7 @@ export default function Triagem() {
                 ) : (
                   pacientesFiltrados.map(p => (
                     <tr key={p.id}>
-                      <td><strong>{p.senha_atendimento}</strong></td>
+                      <td><strong style={p.senha_atendimento == null ? { color: '#7c3aed' } : {}}>{p.senha_atendimento ?? 'SE'}</strong></td>
                       <td>{p.dia_atendimento}</td>
                       <td>{p.tipo_tratamento}</td>
                       <td>{p.nome}</td>

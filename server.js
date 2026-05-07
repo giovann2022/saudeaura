@@ -128,8 +128,11 @@ app.post('/api/webhook/n8n', async (req, res) => {
             if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 2' });
         }
 
-        const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
-        const senha = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
+        let senha = null;
+        if (tipo_tratamento !== 'Socorro Espiritual') {
+            const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
+            senha = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
+        }
 
         await pool.query(
             `INSERT INTO pacientes (evento_id, senha_atendimento, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, endereco, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3)
@@ -215,7 +218,9 @@ app.get('/eventos', async (req, res) => {
         const eventosComContagem = await Promise.all(result.rows.map(async (ev) => {
             const c1 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [ev.id, 'Dia 1']);
             const c2 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [ev.id, 'Dia 2']);
-            return { ...ev, ocupadas_dia1: parseInt(c1.rows[0].count), ocupadas_dia2: parseInt(c2.rows[0].count) };
+            const s1 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento = 'Socorro Espiritual'", [ev.id, 'Dia 1']);
+            const s2 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento = 'Socorro Espiritual'", [ev.id, 'Dia 2']);
+            return { ...ev, ocupadas_dia1: parseInt(c1.rows[0].count), ocupadas_dia2: parseInt(c2.rows[0].count), socorro_dia1: parseInt(s1.rows[0].count), socorro_dia2: parseInt(s2.rows[0].count) };
         }));
         res.json(eventosComContagem);
     } catch (e) { res.status(500).json({ erro: 'Erro ao listar eventos' }); }
@@ -265,10 +270,13 @@ app.post('/pacientes', async (req, res) => {
             if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: '🚫 Vagas esgotadas D2' });
         }
         
-        const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
-        let s = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
-        
-        await pool.query(`INSERT INTO pacientes (evento_id, senha_atendimento, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, endereco, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`, 
+        let s = null;
+        if (tipo_tratamento !== 'Socorro Espiritual') {
+            const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
+            s = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
+        }
+
+        await pool.query(`INSERT INTO pacientes (evento_id, senha_atendimento, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, endereco, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
         [evento_id, s, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3]);
         res.status(201).json({ senha: s });
     } catch (e) { res.status(500).json({ erro: e.message }); }
@@ -277,18 +285,28 @@ app.post('/pacientes', async (req, res) => {
 app.put('/pacientes/:id', async (req, res) => {
     const { evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3 } = req.body;
     try {
-        const atual = (await pool.query('SELECT dia_atendimento, evento_id, senha_atendimento FROM pacientes WHERE id = $1', [req.params.id])).rows[0];
-        const diaMudou = atual && (atual.dia_atendimento !== dia_atendimento || String(atual.evento_id) !== String(evento_id));
-        let senha_final = atual ? atual.senha_atendimento : 1;
-        if (diaMudou) {
-            const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
-            senha_final = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
+        const atual = (await pool.query('SELECT dia_atendimento, evento_id, senha_atendimento, tipo_tratamento FROM pacientes WHERE id = $1', [req.params.id])).rows[0];
+        let senha_final = null;
+        let novaSenhaNaResposta = null;
+        if (tipo_tratamento !== 'Socorro Espiritual') {
+            const precisaNovasenha = atual && (
+                atual.tipo_tratamento === 'Socorro Espiritual' ||
+                atual.dia_atendimento !== dia_atendimento ||
+                String(atual.evento_id) !== String(evento_id)
+            );
+            if (precisaNovasenha) {
+                const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);
+                senha_final = maxS.rows[0].max ? parseInt(maxS.rows[0].max) + 1 : 1;
+                novaSenhaNaResposta = senha_final;
+            } else {
+                senha_final = atual ? atual.senha_atendimento : 1;
+            }
         }
         await pool.query(
             `UPDATE pacientes SET evento_id=$1, dia_atendimento=$2, tipo_tratamento=$3, nome=$4, telefone=$5, nascimento=$6, idade=$7, endereco=$8, numero=$9, complemento=$10, bairro=$11, cidade=$12, estado=$13, queixa1=$14, queixa2=$15, queixa3=$16, senha_atendimento=$17 WHERE id=$18`,
             [evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3, senha_final, req.params.id]
         );
-        res.json({ mensagem: '✅ Atualizado!', nova_senha: diaMudou ? senha_final : null });
+        res.json({ mensagem: '✅ Atualizado!', nova_senha: novaSenhaNaResposta });
     } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 

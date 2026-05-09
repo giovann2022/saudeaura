@@ -119,7 +119,8 @@ export default function Triagem() {
     if (diaFiltro !== 'todos' && p.dia_atendimento !== diaFiltro) return false;
     if (termoBusca) {
       const busca = termoBusca.toLowerCase();
-      return p.nome.toLowerCase().includes(busca) || p.senha_atendimento.toString() === termoBusca;
+      const senhaStr = p.senha_atendimento != null ? p.senha_atendimento.toString() : 'se';
+      return p.nome.toLowerCase().includes(busca) || senhaStr.toLowerCase().includes(busca);
     }
     return true;
   });

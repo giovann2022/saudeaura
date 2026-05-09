@@ -99,6 +99,16 @@ export default function Dashboard() {
                   <span className="stat-header">Capacidade Base</span>
                   <span className="stat-value" style={{ color: 'var(--secondary)' }}>{eventoAtual.vagas_dia1 + eventoAtual.vagas_dia2}</span>
                 </div>
+
+                <div className="stat-card" style={{ borderLeft: '4px solid #7c3aed' }}>
+                  <span className="stat-header">Socorro Espiritual — Dia 1</span>
+                  <span className="stat-value" style={{ color: '#7c3aed' }}>{eventoAtual.socorro_dia1 ?? 0}</span>
+                </div>
+
+                <div className="stat-card" style={{ borderLeft: '4px solid #7c3aed' }}>
+                  <span className="stat-header">Socorro Espiritual — Dia 2</span>
+                  <span className="stat-value" style={{ color: '#7c3aed' }}>{eventoAtual.socorro_dia2 ?? 0}</span>
+                </div>
               </div>
 
               {/* Event Progress Breakdown */}

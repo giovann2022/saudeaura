@@ -75,23 +75,38 @@ export const desenharFichaNoDoc = (doc, p, imgLogo) => {
   
   doc.line(20, 70, 190, 70);
   doc.setFont(undefined, 'bold'); doc.text("QUEIXAS:", 20, 78); doc.setFont(undefined, 'normal');
-  
-  doc.text(`1. ${p.queixa1 || ''}`, 20, 86);
-  
+
+  const alturaLinha = 5;
+  let y = 86;
+
+  const escreverQueixa = (numero, texto) => {
+    const linhas = doc.splitTextToSize(`${numero}. ${texto || ''}`, 170);
+    doc.text(linhas, 20, y);
+    y += linhas.length * alturaLinha + 2;
+  };
+
+  escreverQueixa(1, p.queixa1);
+
   if(p.tipo_tratamento === 'Cura Espiritual') {
-      doc.text(`2. ${p.queixa2 || ''}`, 20, 94); 
-      doc.text(`3. ${p.queixa3 || ''}`, 20, 102);
-      
-      doc.line(20, 108, 190, 108);
-      doc.setFont(undefined, 'bold'); 
-      doc.text("Termo de Responsabilidade:", 20, 118); 
+      escreverQueixa(2, p.queixa2);
+      escreverQueixa(3, p.queixa3);
+
+      y += 4;
+      doc.line(20, y, 190, y);
+      y += 10;
+      doc.setFont(undefined, 'bold');
+      doc.text("Termo de Responsabilidade:", 20, y);
       doc.setFont(undefined, 'normal');
-      
+
       const termo = "Declaro conhecer as normas sobre o tratamento espiritual que inicio hoje de livre e espontânea vontade. Declaro ainda que não abandonarei os serviços médicos e a medicação receitada considerando este tratamento como uma alternativa complementar.";
-      doc.text(doc.splitTextToSize(termo, 170), 20, 126);
-      
-      doc.text("____________________, _____ de _______________ de _______", 20, 152);
-      doc.text("Assinatura: ___________________________________________________________", 20, 172);
+      const linhasTermo = doc.splitTextToSize(termo, 170);
+      y += 8;
+      doc.text(linhasTermo, 20, y);
+      y += linhasTermo.length * alturaLinha + 12;
+
+      doc.text("____________________, _____ de _______________ de _______", 20, y);
+      y += 20;
+      doc.text("Assinatura: ___________________________________________________________", 20, y);
   }
 };
 

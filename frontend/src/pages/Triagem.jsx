@@ -21,6 +21,10 @@ export default function Triagem() {
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(CAMPOS_VAZIOS);
   const [salvando, setSalvando] = useState(false);
+  const [intervaloAberto, setIntervaloAberto] = useState(false);
+  const [intervaloDia, setIntervaloDia] = useState('Dia 1');
+  const [intervaloDe, setIntervaloDe] = useState('');
+  const [intervaloAte, setIntervaloAte] = useState('');
 
   useEffect(() => {
     carregarEventos();
@@ -114,6 +118,30 @@ export default function Triagem() {
     }
   };
 
+  const imprimirIntervalo = () => {
+    const de = parseInt(intervaloDe, 10);
+    const ate = parseInt(intervaloAte, 10);
+    if (isNaN(de) || isNaN(ate)) {
+      toast.error('Informe as senhas inicial e final');
+      return;
+    }
+    const min = Math.min(de, ate);
+    const max = Math.max(de, ate);
+    const selecionados = listaPacientes
+      .filter(p => p.evento_id == eventoSelecionadoId
+        && p.dia_atendimento === intervaloDia
+        && p.senha_atendimento != null
+        && p.senha_atendimento >= min
+        && p.senha_atendimento <= max)
+      .sort((a, b) => a.senha_atendimento - b.senha_atendimento);
+    if (selecionados.length === 0) {
+      toast.error('Nenhuma ficha no intervalo selecionado');
+      return;
+    }
+    imprimirFichasLote(selecionados);
+    setIntervaloAberto(false);
+  };
+
   const pacientesFiltrados = listaPacientes.filter(p => {
     if (p.evento_id != eventoSelecionadoId) return false;
     if (diaFiltro !== 'todos' && p.dia_atendimento !== diaFiltro) return false;
@@ -181,6 +209,14 @@ export default function Triagem() {
             >
               🖨️ IMPRIMIR LOTE
             </button>
+
+            {/* Imprimir intervalo */}
+            <button
+              className="btn-secondary"
+              onClick={() => { setIntervaloDe(''); setIntervaloAte(''); setIntervaloAberto(true); }}
+            >
+              🖨️ INTERVALO
+            </button>
           </div>
 
           {/* Resumo do evento */}
@@ -244,6 +280,64 @@ export default function Triagem() {
         </div>
       </div>
     </div>
+
+    {/* Modal de intervalo */}
+    {intervaloAberto && (
+      <div style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px'
+      }}>
+        <div style={{
+          background: 'var(--bg-card)', borderRadius: '12px', padding: '24px',
+          width: '100%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>🖨️ Imprimir intervalo de fichas</h3>
+            <button className="btn-action" onClick={() => setIntervaloAberto(false)} style={{ fontSize: '1.2rem' }}>✕</button>
+          </div>
+
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dia</label>
+              <select className="search-input" value={intervaloDia} onChange={e => setIntervaloDia(e.target.value)}>
+                <option>Dia 1</option>
+                <option>Dia 2</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Da senha</label>
+                <input
+                  type="number"
+                  className="search-input"
+                  min="1"
+                  value={intervaloDe}
+                  onChange={e => setIntervaloDe(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Até a senha</label>
+                <input
+                  type="number"
+                  className="search-input"
+                  min="1"
+                  value={intervaloAte}
+                  onChange={e => setIntervaloAte(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') imprimirIntervalo(); }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button className="btn-secondary" onClick={() => setIntervaloAberto(false)}>Cancelar</button>
+              <button className="btn-primary" onClick={imprimirIntervalo}>🖨️ Imprimir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Modal de edição */}
     {editando && (

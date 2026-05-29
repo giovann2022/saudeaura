@@ -99,6 +99,7 @@ app.get('/reparar-banco', async (req, res) => {
 
 // Auto-migrate database sizes for BCrypt
 pool.query('ALTER TABLE usuarios ALTER COLUMN senha TYPE VARCHAR(255)').catch(() => {});
+pool.query('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS entregue BOOLEAN DEFAULT false').catch(() => {});
 
 // === WEBHOOK N8N (WhatsApp) — autenticação por API Key ===
 const N8N_WEBHOOK_KEY = process.env.N8N_WEBHOOK_KEY || 'saudeaura_n8n_2026_secret';
@@ -307,6 +308,14 @@ app.put('/pacientes/:id', async (req, res) => {
             [evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3, senha_final, req.params.id]
         );
         res.json({ mensagem: '✅ Atualizado!', nova_senha: novaSenhaNaResposta });
+    } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+app.put('/pacientes/:id/entregue', async (req, res) => {
+    const { entregue } = req.body;
+    try {
+        await pool.query('UPDATE pacientes SET entregue = $1 WHERE id = $2', [!!entregue, req.params.id]);
+        res.json({ sucesso: true, entregue: !!entregue });
     } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 

@@ -151,12 +151,6 @@ export default function Triagem() {
       return p.nome.toLowerCase().includes(busca) || senhaStr.toLowerCase().includes(busca);
     }
     return true;
-  }).sort((a, b) => {
-    if (a.dia_atendimento !== b.dia_atendimento) return a.dia_atendimento.localeCompare(b.dia_atendimento);
-    if (a.senha_atendimento == null && b.senha_atendimento == null) return 0;
-    if (a.senha_atendimento == null) return 1;
-    if (b.senha_atendimento == null) return -1;
-    return a.senha_atendimento - b.senha_atendimento;
   });
 
   const socorrosFiltrados = listaPacientes

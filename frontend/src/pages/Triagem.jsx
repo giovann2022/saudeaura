@@ -241,8 +241,8 @@ export default function Triagem() {
               <span>📋 <strong>{pacientesFiltrados.length}</strong> paciente(s) exibido(s)</span>
               {diaFiltro === 'todos' && (
                 <>
-                  <span>Dia 1: <strong>{listaPacientes.filter(p => p.evento_id == eventoSelecionadoId && p.dia_atendimento === 'Dia 1' && p.tipo_tratamento !== 'Socorro Espiritual').length}</strong></span>
-                  <span>Dia 2: <strong>{listaPacientes.filter(p => p.evento_id == eventoSelecionadoId && p.dia_atendimento === 'Dia 2' && p.tipo_tratamento !== 'Socorro Espiritual').length}</strong></span>
+                  <span>Dia 1: <strong>{listaPacientes.filter(p => p.evento_id == eventoSelecionadoId && p.dia_atendimento === 'Dia 1').length}</strong></span>
+                  <span>Dia 2: <strong>{listaPacientes.filter(p => p.evento_id == eventoSelecionadoId && p.dia_atendimento === 'Dia 2').length}</strong></span>
                 </>
               )}
             </div>

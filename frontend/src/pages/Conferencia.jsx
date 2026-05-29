@@ -43,12 +43,9 @@ export default function Conferencia() {
   const senhas = listaPacientes
     .filter(p => p.evento_id == eventoSelecionadoId
       && p.dia_atendimento === diaFiltro
+      && p.tipo_tratamento === 'Cura Espiritual'
       && p.senha_atendimento != null)
     .sort((a, b) => a.senha_atendimento - b.senha_atendimento);
-
-  const socorros = listaPacientes.filter(p => p.evento_id == eventoSelecionadoId
-    && p.dia_atendimento === diaFiltro
-    && p.senha_atendimento == null);
 
   // Monta as linhas em ordem crescente, inserindo marcadores nas senhas que faltam
   const linhas = [];
@@ -114,7 +111,6 @@ export default function Conferencia() {
                 ? `⚠️ ${faltantes.length} faltando: ${faltantes.join(', ')}`
                 : '✅ Sequência completa'}
             </span>
-            {socorros.length > 0 && <span>🟣 Socorro (sem senha): <strong>{socorros.length}</strong></span>}
           </div>
 
           <div className="table-responsive">
@@ -122,20 +118,19 @@ export default function Conferencia() {
               <thead>
                 <tr>
                   <th style={{ width: '90px' }}>Senha</th>
-                  <th>Tipo</th>
                   <th>Paciente</th>
                 </tr>
               </thead>
               <tbody>
                 {carregando ? (
                   <tr>
-                    <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <td colSpan="2" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                       <em>Carregando...</em>
                     </td>
                   </tr>
                 ) : linhas.length === 0 ? (
                   <tr>
-                    <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <td colSpan="2" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                       Nenhuma senha emitida para {diaFiltro}.
                     </td>
                   </tr>
@@ -144,14 +139,13 @@ export default function Conferencia() {
                     l.tipo === 'gap' ? (
                       <tr key={`gap-${l.senha}`} style={{ background: '#fef2f2' }}>
                         <td><strong style={{ color: 'var(--danger)' }}>{l.senha}</strong></td>
-                        <td colSpan="2" style={{ color: 'var(--danger)', fontStyle: 'italic' }}>
+                        <td style={{ color: 'var(--danger)', fontStyle: 'italic' }}>
                           ⚠️ Senha não encontrada
                         </td>
                       </tr>
                     ) : (
                       <tr key={l.p.id}>
                         <td><strong>{l.p.senha_atendimento}</strong></td>
-                        <td>{l.p.tipo_tratamento}</td>
                         <td>{l.p.nome}</td>
                       </tr>
                     )

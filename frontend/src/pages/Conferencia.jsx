@@ -40,17 +40,6 @@ export default function Conferencia() {
     }
   };
 
-  const toggleEntregue = async (p) => {
-    const novoValor = !p.entregue;
-    setListaPacientes(prev => prev.map(x => x.id === p.id ? { ...x, entregue: novoValor } : x));
-    try {
-      await api.put(`/pacientes/${p.id}/entregue`, { entregue: novoValor });
-    } catch {
-      setListaPacientes(prev => prev.map(x => x.id === p.id ? { ...x, entregue: !novoValor } : x));
-      toast.error('Erro ao atualizar entrega');
-    }
-  };
-
   const senhas = listaPacientes
     .filter(p => p.evento_id == eventoSelecionadoId
       && p.dia_atendimento === diaFiltro
@@ -76,7 +65,6 @@ export default function Conferencia() {
 
   const primeira = senhas.length ? senhas[0].senha_atendimento : null;
   const ultima = senhas.length ? senhas[senhas.length - 1].senha_atendimento : null;
-  const entregues = senhas.filter(p => p.entregue).length;
 
   return (
     <div className="app-wrapper">
@@ -123,7 +111,6 @@ export default function Conferencia() {
                 ? `⚠️ ${faltantes.length} faltando: ${faltantes.join(', ')}`
                 : '✅ Sequência completa'}
             </span>
-            <span>✔️ Entregues: <strong>{entregues}</strong> / {senhas.length}</span>
           </div>
 
           <div className="table-responsive">
@@ -132,19 +119,18 @@ export default function Conferencia() {
                 <tr>
                   <th style={{ width: '90px' }}>Senha</th>
                   <th>Paciente</th>
-                  <th style={{ width: '110px', textAlign: 'center' }}>Entregue</th>
                 </tr>
               </thead>
               <tbody>
                 {carregando ? (
                   <tr>
-                    <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <td colSpan="2" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                       <em>Carregando...</em>
                     </td>
                   </tr>
                 ) : linhas.length === 0 ? (
                   <tr>
-                    <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <td colSpan="2" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                       Nenhuma senha emitida para {diaFiltro}.
                     </td>
                   </tr>
@@ -153,22 +139,14 @@ export default function Conferencia() {
                     l.tipo === 'gap' ? (
                       <tr key={`gap-${l.senha}`} style={{ background: '#fef2f2' }}>
                         <td><strong style={{ color: 'var(--danger)' }}>{l.senha}</strong></td>
-                        <td colSpan="2" style={{ color: 'var(--danger)', fontStyle: 'italic' }}>
+                        <td style={{ color: 'var(--danger)', fontStyle: 'italic' }}>
                           ⚠️ Senha não encontrada
                         </td>
                       </tr>
                     ) : (
-                      <tr key={l.p.id} style={l.p.entregue ? { background: '#f0fdf4' } : {}}>
+                      <tr key={l.p.id}>
                         <td><strong>{l.p.senha_atendimento}</strong></td>
                         <td>{l.p.nome}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!l.p.entregue}
-                            onChange={() => toggleEntregue(l.p)}
-                            style={{ width: '20px', height: '20px', margin: 0, padding: 0, cursor: 'pointer', accentColor: 'var(--accent)' }}
-                          />
-                        </td>
                       </tr>
                     )
                   ))

@@ -58,7 +58,7 @@ export const desenharFichaNoDoc = (doc, p, imgLogo) => {
   if (imgLogo) { doc.addImage(imgLogo, 'PNG', 170, 8, 25, 25); }
   
   doc.setFontSize(18); doc.setFont(undefined, 'bold');
-  doc.text(`SENHA: ${p.senha_atendimento}`, 20, 33);
+  doc.text(p.senha_atendimento != null ? `SENHA: ${p.senha_atendimento}` : 'SOCORRO ESPIRITUAL', 20, 33);
   doc.setFontSize(14); doc.setFont(undefined, 'bold');
   doc.text((p.nome_evento || '').toUpperCase(), 105, 15, { align: 'center' });
   
@@ -128,6 +128,7 @@ export const imprimirFichaUnica = async (p) => {
   const dAtend = p.dia_atendimento === 'Dia 1' ? formatarDataBR(p.data_dia1) : formatarDataBR(p.data_dia2);
   const dataArquivo = dAtend.replace(/\//g, '-');
   const tipoResumido = p.tipo_tratamento.includes('Cura') ? 'Cura' : 'Socorro';
-  
-  doc.save(`${dataArquivo}_Senha_${p.senha_atendimento}_${tipoResumido}.pdf`);
+  const senhaArquivo = p.senha_atendimento != null ? `Senha_${p.senha_atendimento}` : 'SemSenha';
+
+  doc.save(`${dataArquivo}_${senhaArquivo}_${tipoResumido}.pdf`);
 };

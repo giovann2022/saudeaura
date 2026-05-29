@@ -153,6 +153,12 @@ export default function Triagem() {
     return true;
   });
 
+  const socorrosFiltrados = listaPacientes
+    .filter(p => p.evento_id == eventoSelecionadoId
+      && (diaFiltro === 'todos' || p.dia_atendimento === diaFiltro)
+      && p.tipo_tratamento === 'Socorro Espiritual')
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+
   const eventoAtual = eventos.find(e => e.id == eventoSelecionadoId);
 
   return (
@@ -216,6 +222,16 @@ export default function Triagem() {
               onClick={() => { setIntervaloDe(''); setIntervaloAte(''); setIntervaloAberto(true); }}
             >
               🖨️ INTERVALO
+            </button>
+
+            {/* Imprimir socorros (sem senha) */}
+            <button
+              className="btn-secondary"
+              onClick={() => imprimirFichasLote(socorrosFiltrados)}
+              disabled={socorrosFiltrados.length === 0}
+              title="Imprimir todas as fichas de Socorro Espiritual (sem senha)"
+            >
+              🖨️ SOCORROS ({socorrosFiltrados.length})
             </button>
           </div>
 

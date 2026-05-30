@@ -17,6 +17,7 @@ export default function TopMenu() {
       <button onClick={() => navigate('/dashboard')} className={`menu-btn ${isActive('/dashboard')}`}>📊 Dashboard</button>
       <button onClick={() => navigate('/cadastro')} className={`menu-btn ${isActive('/cadastro')}`}>📝 Cadastro</button>
       <button onClick={() => navigate('/triagem')} className={`menu-btn ${isActive('/triagem')}`}>📋 Triagem</button>
+      <button onClick={() => navigate('/conferencia')} className={`menu-btn ${isActive('/conferencia')}`}>🔢 Conferência</button>
       {perfil === 'admin' && (
         <button onClick={() => navigate('/configuracoes')} className={`menu-btn ${isActive('/configuracoes')}`}>⚙️ Admin</button>
       )}

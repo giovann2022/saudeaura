@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Cadastro from './pages/Cadastro';
 import Triagem from './pages/Triagem';
+import Conferencia from './pages/Conferencia';
 import Configuracoes from './pages/Configuracoes';
 
 function RequireAuth({ children }) {
@@ -43,7 +44,11 @@ function App() {
           <Route path="/triagem" element={
             <RequireAuth><Triagem /></RequireAuth>
           } />
-          
+
+          <Route path="/conferencia" element={
+            <RequireAuth><Conferencia /></RequireAuth>
+          } />
+
           <Route path="/configuracoes" element={
             <RequireAuth><Configuracoes /></RequireAuth>
           } />

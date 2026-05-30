@@ -69,22 +69,6 @@ export default function Conferencia() {
       && p.senha_atendimento != null)
     .sort((a, b) => a.senha_atendimento - b.senha_atendimento);
 
-  // Monta as linhas em ordem crescente, inserindo marcadores nas senhas que faltam
-  const linhas = [];
-  const faltantes = [];
-  if (senhas.length > 0) {
-    let esperado = senhas[0].senha_atendimento;
-    for (const p of senhas) {
-      while (esperado < p.senha_atendimento) {
-        linhas.push({ tipo: 'gap', senha: esperado });
-        faltantes.push(esperado);
-        esperado++;
-      }
-      linhas.push({ tipo: 'paciente', p });
-      esperado = p.senha_atendimento + 1;
-    }
-  }
-
   const primeira = senhas.length ? senhas[0].senha_atendimento : null;
   const ultima = senhas.length ? senhas[senhas.length - 1].senha_atendimento : null;
   const entregues = senhas.filter(p => p.entregue).length;
@@ -130,11 +114,6 @@ export default function Conferencia() {
           <div style={{ padding: '10px 4px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
             <span>🔢 <strong>{senhas.length}</strong> senha(s)</span>
             {primeira != null && <span>Faixa: <strong>{primeira}</strong> a <strong>{ultima}</strong></span>}
-            <span style={{ color: faltantes.length ? 'var(--danger)' : 'var(--accent)' }}>
-              {faltantes.length
-                ? `⚠️ ${faltantes.length} faltando: ${faltantes.join(', ')}`
-                : '✅ Sequência completa'}
-            </span>
             <span>✔️ Entregues: <strong>{entregues}</strong> / {senhas.length}</span>
             <span>⭐ Preferenciais: <strong>{preferenciais}</strong></span>
           </div>
@@ -156,43 +135,34 @@ export default function Conferencia() {
                       <em>Carregando...</em>
                     </td>
                   </tr>
-                ) : linhas.length === 0 ? (
+                ) : senhas.length === 0 ? (
                   <tr>
                     <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                       Nenhuma senha emitida para {diaFiltro}.
                     </td>
                   </tr>
                 ) : (
-                  linhas.map((l) => (
-                    l.tipo === 'gap' ? (
-                      <tr key={`gap-${l.senha}`} style={{ background: '#fef2f2' }}>
-                        <td><strong style={{ color: 'var(--danger)' }}>{l.senha}</strong></td>
-                        <td colSpan="3" style={{ color: 'var(--danger)', fontStyle: 'italic' }}>
-                          ⚠️ Senha não encontrada
-                        </td>
-                      </tr>
-                    ) : (
-                      <tr key={l.p.id} style={l.p.preferencial ? { background: '#fff7e6' } : (l.p.entregue ? { background: '#f0fdf4' } : {})}>
-                        <td><strong>{l.p.senha_atendimento}</strong></td>
-                        <td>{l.p.preferencial && '⭐ '}{l.p.nome}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!l.p.entregue}
-                            onChange={() => toggleEntregue(l.p)}
-                            style={{ width: '20px', height: '20px', margin: 0, padding: 0, cursor: 'pointer', accentColor: 'var(--accent)' }}
-                          />
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!l.p.preferencial}
-                            onChange={() => togglePreferencial(l.p)}
-                            style={{ width: '20px', height: '20px', margin: 0, padding: 0, cursor: 'pointer', accentColor: '#f59e0b' }}
-                          />
-                        </td>
-                      </tr>
-                    )
+                  senhas.map((p) => (
+                    <tr key={p.id} style={p.preferencial ? { background: '#fff7e6' } : (p.entregue ? { background: '#f0fdf4' } : {})}>
+                      <td><strong>{p.senha_atendimento}</strong></td>
+                      <td>{p.preferencial && '⭐ '}{p.nome}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={!!p.entregue}
+                          onChange={() => toggleEntregue(p)}
+                          style={{ width: '20px', height: '20px', margin: 0, padding: 0, cursor: 'pointer', accentColor: 'var(--accent)' }}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={!!p.preferencial}
+                          onChange={() => togglePreferencial(p)}
+                          style={{ width: '20px', height: '20px', margin: 0, padding: 0, cursor: 'pointer', accentColor: '#f59e0b' }}
+                        />
+                      </td>
+                    </tr>
                   ))
                 )}
               </tbody>

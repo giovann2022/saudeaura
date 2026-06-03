@@ -142,6 +142,20 @@ export default function Triagem() {
     setIntervaloAberto(false);
   };
 
+  const imprimirSocorros = () => {
+    const socorros = listaPacientes
+      .filter(p => p.evento_id == eventoSelecionadoId
+        && p.tipo_tratamento === 'Socorro Espiritual')
+      .sort((a, b) =>
+        a.dia_atendimento.localeCompare(b.dia_atendimento)
+        || a.nome.localeCompare(b.nome));
+    if (socorros.length === 0) {
+      toast.error('Nenhum Socorro Espiritual neste evento');
+      return;
+    }
+    imprimirFichasLote(socorros);
+  };
+
   const pacientesFiltrados = listaPacientes.filter(p => {
     if (p.evento_id != eventoSelecionadoId) return false;
     if (diaFiltro !== 'todos' && p.dia_atendimento !== diaFiltro) return false;
@@ -216,6 +230,14 @@ export default function Triagem() {
               onClick={() => { setIntervaloDe(''); setIntervaloAte(''); setIntervaloAberto(true); }}
             >
               🖨️ INTERVALO
+            </button>
+
+            {/* Imprimir todos os Socorros Espirituais */}
+            <button
+              className="btn-secondary"
+              onClick={imprimirSocorros}
+            >
+              🖨️ SOCORROS
             </button>
           </div>
 

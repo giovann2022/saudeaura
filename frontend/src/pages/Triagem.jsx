@@ -15,6 +15,7 @@ export default function Triagem() {
   const [eventos, setEventos] = useState([]);
   const [eventoSelecionadoId, setEventoSelecionadoId] = useState('');
   const [diaFiltro, setDiaFiltro] = useState('todos');
+  const [socorroFiltro, setSocorroFiltro] = useState('todos');
   const [listaPacientes, setListaPacientes] = useState([]);
   const [termoBusca, setTermoBusca] = useState('');
   const [carregando, setCarregando] = useState(true);
@@ -159,6 +160,11 @@ export default function Triagem() {
   const pacientesFiltrados = listaPacientes.filter(p => {
     if (p.evento_id != eventoSelecionadoId) return false;
     if (diaFiltro !== 'todos' && p.dia_atendimento !== diaFiltro) return false;
+    if (socorroFiltro === 'com') {
+      if (p.tipo_tratamento !== 'Socorro Espiritual' || p.senha_atendimento == null) return false;
+    } else if (socorroFiltro === 'sem') {
+      if (p.tipo_tratamento !== 'Socorro Espiritual' || p.senha_atendimento != null) return false;
+    }
     if (termoBusca) {
       const busca = termoBusca.toLowerCase();
       const senhaStr = p.senha_atendimento != null ? p.senha_atendimento.toString() : 'se';
@@ -184,7 +190,7 @@ export default function Triagem() {
                 className="search-input"
                 style={{ maxWidth: '280px', cursor: 'pointer' }}
                 value={eventoSelecionadoId}
-                onChange={e => { setEventoSelecionadoId(e.target.value); setDiaFiltro('todos'); }}
+                onChange={e => { setEventoSelecionadoId(e.target.value); setDiaFiltro('todos'); setSocorroFiltro('todos'); }}
               >
                 {eventos.map(ev => (
                   <option key={ev.id} value={ev.id}>{ev.nome}</option>
@@ -202,6 +208,24 @@ export default function Triagem() {
                   onClick={() => setDiaFiltro(d)}
                 >
                   {d === 'todos' ? 'Todos' : d}
+                </button>
+              ))}
+            </div>
+
+            {/* Filtro de Socorro Espiritual */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {[
+                { val: 'todos', label: 'Todos' },
+                { val: 'com', label: 'Socorro c/ nº' },
+                { val: 'sem', label: 'Socorro s/ nº' },
+              ].map(({ val, label }) => (
+                <button
+                  key={val}
+                  className={socorroFiltro === val ? 'btn-primary' : 'btn-secondary'}
+                  style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                  onClick={() => setSocorroFiltro(val)}
+                >
+                  {label}
                 </button>
               ))}
             </div>

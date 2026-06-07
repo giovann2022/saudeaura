@@ -43,7 +43,7 @@ const verificarToken = (req, res, next) => {
 app.post('/login', async (req, res) => {
     const { usuario, senha } = req.body;
     try {
-        const r = await pool.query('SELECT id, nome, senha, perfil FROM usuarios WHERE usuario = $1', [usuario]);
+        const r = await pool.query('SELECT id, nome, senha, perfil, evento_id FROM usuarios WHERE usuario = $1', [usuario]);
         if (r.rows.length === 0) return res.status(401).json({ erro: 'Utilizador não encontrado' });
         
         const user = r.rows[0];
@@ -58,8 +58,8 @@ app.post('/login', async (req, res) => {
         
         if (senhaCorreta) {
             // Gerar Token
-            const token = jwt.sign({ id: user.id, perfil: user.perfil, nome: user.nome }, SECRET_KEY, { expiresIn: '12h' });
-            res.json({ sucesso: true, token, perfil: user.perfil, nome: user.nome });
+            const token = jwt.sign({ id: user.id, perfil: user.perfil, nome: user.nome, evento_id: user.evento_id }, SECRET_KEY, { expiresIn: '12h' });
+            res.json({ sucesso: true, token, perfil: user.perfil, nome: user.nome, evento_id: user.evento_id });
         } else {
             res.status(401).json({ erro: 'Senha incorreta' });
         }
@@ -102,6 +102,25 @@ pool.query('ALTER TABLE usuarios ALTER COLUMN senha TYPE VARCHAR(255)').catch(()
 pool.query('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS entregue BOOLEAN DEFAULT false').catch(() => {});
 pool.query('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS preferencial BOOLEAN DEFAULT false').catch(() => {});
 
+// Auto-migrate: usuário vinculado a um evento (null = vê todos / admin)
+pool.query('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS evento_id INTEGER').catch(() => {});
+// Auto-migrate: eventos de 1 a 5 dias (qtd_dias + colunas dia 3..5; dias antigos = 2)
+pool.query('ALTER TABLE eventos ADD COLUMN IF NOT EXISTS qtd_dias INTEGER DEFAULT 2').catch(() => {});
+pool.query('ALTER TABLE eventos ADD COLUMN IF NOT EXISTS data_dia3 DATE').catch(() => {});
+pool.query('ALTER TABLE eventos ADD COLUMN IF NOT EXISTS vagas_dia3 INTEGER').catch(() => {});
+pool.query('ALTER TABLE eventos ADD COLUMN IF NOT EXISTS data_dia4 DATE').catch(() => {});
+pool.query('ALTER TABLE eventos ADD COLUMN IF NOT EXISTS vagas_dia4 INTEGER').catch(() => {});
+pool.query('ALTER TABLE eventos ADD COLUMN IF NOT EXISTS data_dia5 DATE').catch(() => {});
+pool.query('ALTER TABLE eventos ADD COLUMN IF NOT EXISTS vagas_dia5 INTEGER').catch(() => {});
+// Dias 2..5 podem ficar vazios em eventos de menos dias
+pool.query('ALTER TABLE eventos ALTER COLUMN data_dia2 DROP NOT NULL').catch(() => {});
+pool.query('ALTER TABLE eventos ALTER COLUMN vagas_dia2 DROP NOT NULL').catch(() => {});
+
+// Helpers de dia de atendimento: "Dia 3" -> 3, e vagas/data da coluna correspondente
+const numeroDoDia = (s) => parseInt(String(s || '').replace(/\D/g, ''), 10) || 1;
+const vagasDoDia = (ev, diaStr) => ev[`vagas_dia${numeroDoDia(diaStr)}`];
+const DIAS_MAX = 5;
+
 // === WEBHOOK N8N (WhatsApp) — autenticação por API Key ===
 const N8N_WEBHOOK_KEY = process.env.N8N_WEBHOOK_KEY || 'saudeaura_n8n_2026_secret';
 
@@ -126,8 +145,8 @@ app.post('/api/webhook/n8n', async (req, res) => {
         const ocup = parseInt((await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [evento_id, dia_atendimento])).rows[0].count);
 
         if (tipo_tratamento !== 'Socorro Espiritual') {
-            if (dia_atendimento === 'Dia 1' && ocup >= ev.vagas_dia1) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 1' });
-            if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: 'Vagas esgotadas para Dia 2' });
+            const vagas = vagasDoDia(ev, dia_atendimento);
+            if (vagas != null && ocup >= vagas) return res.status(400).json({ erro: `Vagas esgotadas para ${dia_atendimento}` });
         }
 
         let senha = null;
@@ -186,17 +205,17 @@ app.use(verificarToken);
 // === UTILIZADORES ===
 app.get('/usuarios', async (req, res) => {
     if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
-    const r = await pool.query('SELECT id, nome, usuario, perfil FROM usuarios ORDER BY nome ASC');
+    const r = await pool.query('SELECT u.id, u.nome, u.usuario, u.perfil, u.evento_id, e.nome AS nome_evento FROM usuarios u LEFT JOIN eventos e ON u.evento_id = e.id ORDER BY u.nome ASC');
     res.json(r.rows);
 });
 
 app.post('/usuarios', async (req, res) => {
     if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
-    const { nome, usuario, senha, perfil } = req.body;
+    const { nome, usuario, senha, perfil, evento_id } = req.body;
     try {
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(senha, salt);
-        await pool.query('INSERT INTO usuarios (nome, usuario, senha, perfil) VALUES ($1, $2, $3, $4)', [nome, usuario, hash, perfil]);
+        await pool.query('INSERT INTO usuarios (nome, usuario, senha, perfil, evento_id) VALUES ($1, $2, $3, $4, $5)', [nome, usuario, hash, perfil, evento_id || null]);
         res.json({ mensagem: '✅ Utilizador criado com sucesso!' });
     } catch (e) {
         if (e.message.includes('unique')) {
@@ -216,34 +235,75 @@ app.delete('/usuarios/:id', async (req, res) => {
 // === EVENTOS ===
 app.get('/eventos', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM eventos ORDER BY id DESC');
+        // Voluntário vinculado a um evento só enxerga esse evento; admin (ou usuário sem
+        // vínculo, legado) enxerga todos.
+        const restrito = req.user.perfil !== 'admin' && req.user.evento_id;
+        const result = restrito
+            ? await pool.query('SELECT * FROM eventos WHERE id = $1 ORDER BY id DESC', [req.user.evento_id])
+            : await pool.query('SELECT * FROM eventos ORDER BY id DESC');
+
         const eventosComContagem = await Promise.all(result.rows.map(async (ev) => {
-            const c1 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [ev.id, 'Dia 1']);
-            const c2 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [ev.id, 'Dia 2']);
-            const s1 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento = 'Socorro Espiritual'", [ev.id, 'Dia 1']);
-            const s2 = await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento = 'Socorro Espiritual'", [ev.id, 'Dia 2']);
-            return { ...ev, ocupadas_dia1: parseInt(c1.rows[0].count), ocupadas_dia2: parseInt(c2.rows[0].count), socorro_dia1: parseInt(s1.rows[0].count), socorro_dia2: parseInt(s2.rows[0].count) };
+            // Uma única consulta agrupada por dia: cura (conta vaga) x socorro (sem vaga)
+            const cont = await pool.query(
+                `SELECT dia_atendimento,
+                        COUNT(*) FILTER (WHERE tipo_tratamento != 'Socorro Espiritual') AS cura,
+                        COUNT(*) FILTER (WHERE tipo_tratamento = 'Socorro Espiritual')  AS socorro
+                 FROM pacientes WHERE evento_id = $1 GROUP BY dia_atendimento`, [ev.id]);
+            const porDia = {};
+            cont.rows.forEach(r => { porDia[r.dia_atendimento] = { cura: parseInt(r.cura), socorro: parseInt(r.socorro) }; });
+
+            const qtd = ev.qtd_dias || 2;
+            const dias = [];
+            for (let n = 1; n <= qtd; n++) {
+                const label = `Dia ${n}`;
+                const c = porDia[label] || { cura: 0, socorro: 0 };
+                dias.push({ numero: n, label, data: ev[`data_dia${n}`], vagas: ev[`vagas_dia${n}`], ocupadas: c.cura, socorro: c.socorro });
+            }
+            return { ...ev, dias };
         }));
         res.json(eventosComContagem);
     } catch (e) { res.status(500).json({ erro: 'Erro ao listar eventos' }); }
 });
 
+// Colunas data_diaN / vagas_diaN para o INSERT/UPDATE de eventos (dia 1..5)
+const COLS_DIAS = Array.from({ length: DIAS_MAX }, (_, i) => i + 1)
+    .flatMap(n => [`data_dia${n}`, `vagas_dia${n}`]);
+// Lê os dias do corpo respeitando qtd_dias: dias além do escolhido viram null
+const valoresDias = (body) => {
+    const qtd = Math.min(Math.max(parseInt(body.qtd_dias, 10) || 2, 1), DIAS_MAX);
+    return COLS_DIAS.map((col) => {
+        const n = numeroDoDia(col);
+        if (n > qtd) return null;
+        const v = body[col];
+        return v === '' || v === undefined ? null : v;
+    });
+};
+
 app.post('/eventos', async (req, res) => {
     if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
-    const { nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2, local_atendimento, instrucoes_pdf, insta, whats, email, site } = req.body;
+    const { nome, qtd_dias, local_atendimento, instrucoes_pdf, insta, whats, email, site } = req.body;
     try {
-        await pool.query(`INSERT INTO eventos (nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2, local_atendimento, instrucoes_pdf, insta, whats, email, site) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`, 
-        [nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2, local_atendimento, instrucoes_pdf, insta, whats, email, site]);
+        const dias = valoresDias(req.body);
+        const qtd = Math.min(Math.max(parseInt(qtd_dias, 10) || 2, 1), DIAS_MAX);
+        // Colunas: nome, qtd_dias, data_dia1, vagas_dia1, ..., data_dia5, vagas_dia5, local..., site
+        const cols = ['nome', 'qtd_dias', ...COLS_DIAS, 'local_atendimento', 'instrucoes_pdf', 'insta', 'whats', 'email', 'site'];
+        const vals = [nome, qtd, ...dias, local_atendimento, instrucoes_pdf, insta, whats, email, site];
+        const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
+        await pool.query(`INSERT INTO eventos (${cols.join(', ')}) VALUES (${placeholders})`, vals);
         res.json({ mensagem: '✅ Evento criado!' });
     } catch (e) { res.status(500).json({ erro: 'Erro ao criar evento' }); }
 });
 
 app.put('/eventos/:id', async (req, res) => {
     if(req.user.perfil !== 'admin') return res.status(403).json({erro: 'Sem permissão'});
-    const { nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2, local_atendimento, instrucoes_pdf, insta, whats, email, site } = req.body;
+    const { nome, qtd_dias, local_atendimento, instrucoes_pdf, insta, whats, email, site } = req.body;
     try {
-        await pool.query(`UPDATE eventos SET nome=$1, data_dia1=$2, vagas_dia1=$3, data_dia2=$4, vagas_dia2=$5, local_atendimento=$6, instrucoes_pdf=$7, insta=$8, whats=$9, email=$10, site=$11 WHERE id=$12`, 
-        [nome, data_dia1, vagas_dia1, data_dia2, vagas_dia2, local_atendimento, instrucoes_pdf, insta, whats, email, site, req.params.id]);
+        const dias = valoresDias(req.body);
+        const qtd = Math.min(Math.max(parseInt(qtd_dias, 10) || 2, 1), DIAS_MAX);
+        const cols = ['nome', 'qtd_dias', ...COLS_DIAS, 'local_atendimento', 'instrucoes_pdf', 'insta', 'whats', 'email', 'site'];
+        const vals = [nome, qtd, ...dias, local_atendimento, instrucoes_pdf, insta, whats, email, site, req.params.id];
+        const sets = cols.map((c, i) => `${c}=$${i + 1}`).join(', ');
+        await pool.query(`UPDATE eventos SET ${sets} WHERE id=$${cols.length + 1}`, vals);
         res.json({ mensagem: '✅ Evento atualizado!' });
     } catch (e) { res.status(500).json({ erro: 'Erro ao atualizar evento' }); }
 });
@@ -257,21 +317,30 @@ app.delete('/eventos/:id', async (req, res) => {
 
 // === PACIENTES ===
 app.get('/pacientes', async (req, res) => {
-    const r = await pool.query(`SELECT p.*, e.nome as nome_evento, e.data_dia1, e.data_dia2, e.local_atendimento, e.instrucoes_pdf, e.insta, e.whats, e.email, e.site FROM pacientes p JOIN eventos e ON p.evento_id = e.id ORDER BY p.id DESC`);
+    // Voluntário vinculado só vê pacientes do seu evento; admin/legado vê todos.
+    const restrito = req.user.perfil !== 'admin' && req.user.evento_id;
+    const base = `SELECT p.*, e.nome as nome_evento, e.data_dia1, e.data_dia2, e.data_dia3, e.data_dia4, e.data_dia5, e.local_atendimento, e.instrucoes_pdf, e.insta, e.whats, e.email, e.site FROM pacientes p JOIN eventos e ON p.evento_id = e.id`;
+    const r = restrito
+        ? await pool.query(`${base} WHERE p.evento_id = $1 ORDER BY p.id DESC`, [req.user.evento_id])
+        : await pool.query(`${base} ORDER BY p.id DESC`);
     res.json(r.rows);
 });
 
 app.post('/pacientes', async (req, res) => {
     const { evento_id, dia_atendimento, tipo_tratamento, nome, telefone, nascimento, idade, rua, numero, complemento, bairro, cidade, estado, queixa1, queixa2, queixa3 } = req.body;
+    // Voluntário vinculado só cadastra no próprio evento
+    if (req.user.perfil !== 'admin' && req.user.evento_id && String(req.user.evento_id) !== String(evento_id)) {
+        return res.status(403).json({ erro: 'Sem permissão para este evento' });
+    }
     try {
         const ev = (await pool.query('SELECT * FROM eventos WHERE id = $1', [evento_id])).rows[0];
         const ocup = parseInt((await pool.query("SELECT COUNT(*) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2 AND tipo_tratamento != 'Socorro Espiritual'", [evento_id, dia_atendimento])).rows[0].count);
 
         if (tipo_tratamento !== 'Socorro Espiritual') {
-            if (dia_atendimento === 'Dia 1' && ocup >= ev.vagas_dia1) return res.status(400).json({ erro: '🚫 Vagas esgotadas D1' });
-            if (dia_atendimento === 'Dia 2' && ocup >= ev.vagas_dia2) return res.status(400).json({ erro: '🚫 Vagas esgotadas D2' });
+            const vagas = vagasDoDia(ev, dia_atendimento);
+            if (vagas != null && ocup >= vagas) return res.status(400).json({ erro: `🚫 Vagas esgotadas ${dia_atendimento}` });
         }
-        
+
         let s = null;
         if (tipo_tratamento !== 'Socorro Espiritual') {
             const maxS = await pool.query('SELECT MAX(senha_atendimento) FROM pacientes WHERE evento_id = $1 AND dia_atendimento = $2', [evento_id, dia_atendimento]);

@@ -10,17 +10,23 @@ const carregarImagens = (srcs) => Promise.all(
   }))
 );
 
-const formatarDataBR = (d) => { 
-  if(!d) return ''; 
-  const p = d.split('T')[0].split('-'); 
-  return `${p[2]}/${p[1]}/${p[0]}`; 
+const formatarDataBR = (d) => {
+  if(!d) return '';
+  const p = d.split('T')[0].split('-');
+  return `${p[2]}/${p[1]}/${p[0]}`;
+};
+
+// "Dia 3" -> data_dia3 do objeto (evento ou paciente com colunas data_diaN)
+const dataDoDia = (obj, diaStr) => {
+  const n = parseInt(String(diaStr || '').replace(/\D/g, ''), 10) || 1;
+  return formatarDataBR(obj?.[`data_dia${n}`]);
 };
 
 export const gerarPDFRecibo = async (senhaS, nomeP, diaE, tipoT, eventoAtual) => {
   if (!eventoAtual) return;
   
   const doc = new jsPDF();
-  const dataR = diaE === 'Dia 1' ? formatarDataBR(eventoAtual.data_dia1) : formatarDataBR(eventoAtual.data_dia2);
+  const dataR = dataDoDia(eventoAtual, diaE);
   const dataArquivo = dataR.replace(/\//g, '-'); 
   
   const [imgLogo] = await carregarImagens(['/logo.png']);
@@ -53,7 +59,7 @@ export const gerarPDFRecibo = async (senhaS, nomeP, diaE, tipoT, eventoAtual) =>
 };
 
 export const desenharFichaNoDoc = (doc, p, imgLogo) => {
-  const dataAtendimento = p.dia_atendimento === 'Dia 1' ? formatarDataBR(p.data_dia1) : formatarDataBR(p.data_dia2);
+  const dataAtendimento = dataDoDia(p, p.dia_atendimento);
   
   if (imgLogo) { doc.addImage(imgLogo, 'PNG', 170, 8, 25, 25); }
   
@@ -125,7 +131,7 @@ export const imprimirFichaUnica = async (p) => {
   const [imgLogo] = await carregarImagens(['/logo.png']);
   desenharFichaNoDoc(doc, p, imgLogo);
   
-  const dAtend = p.dia_atendimento === 'Dia 1' ? formatarDataBR(p.data_dia1) : formatarDataBR(p.data_dia2);
+  const dAtend = dataDoDia(p, p.dia_atendimento);
   const dataArquivo = dAtend.replace(/\//g, '-');
   const tipoResumido = p.tipo_tratamento.includes('Cura') ? 'Cura' : 'Socorro';
   

@@ -15,7 +15,6 @@ export default function Triagem() {
   const [eventos, setEventos] = useState([]);
   const [eventoSelecionadoId, setEventoSelecionadoId] = useState('');
   const [diaFiltro, setDiaFiltro] = useState('todos');
-  const [socorroFiltro, setSocorroFiltro] = useState('todos');
   const [listaPacientes, setListaPacientes] = useState([]);
   const [termoBusca, setTermoBusca] = useState('');
   const [carregando, setCarregando] = useState(true);
@@ -92,7 +91,10 @@ export default function Triagem() {
   };
 
   const trocarDia = async (p) => {
-    const novoDia = p.dia_atendimento === 'Dia 1' ? 'Dia 2' : 'Dia 1';
+    const dias = (eventos.find(e => e.id == eventoSelecionadoId)?.dias || []).map(d => d.label);
+    if (dias.length < 2) return;
+    const idx = dias.indexOf(p.dia_atendimento);
+    const novoDia = dias[(idx + 1) % dias.length];
     if (!confirm(`Mover ${p.nome} para ${novoDia}? Uma nova senha será gerada.`)) return;
     try {
       const res = await api.put(`/pacientes/${p.id}`, {
@@ -160,11 +162,6 @@ export default function Triagem() {
   const pacientesFiltrados = listaPacientes.filter(p => {
     if (p.evento_id != eventoSelecionadoId) return false;
     if (diaFiltro !== 'todos' && p.dia_atendimento !== diaFiltro) return false;
-    if (socorroFiltro === 'com') {
-      if (p.tipo_tratamento !== 'Socorro Espiritual' || p.senha_atendimento == null) return false;
-    } else if (socorroFiltro === 'sem') {
-      if (p.tipo_tratamento !== 'Socorro Espiritual' || p.senha_atendimento != null) return false;
-    }
     if (termoBusca) {
       const busca = termoBusca.toLowerCase();
       const senhaStr = p.senha_atendimento != null ? p.senha_atendimento.toString() : 'se';
@@ -174,6 +171,7 @@ export default function Triagem() {
   });
 
   const eventoAtual = eventos.find(e => e.id == eventoSelecionadoId);
+  const diasEvento = eventoAtual?.dias || [];
 
   return (
     <>
@@ -190,7 +188,7 @@ export default function Triagem() {
                 className="search-input"
                 style={{ maxWidth: '280px', cursor: 'pointer' }}
                 value={eventoSelecionadoId}
-                onChange={e => { setEventoSelecionadoId(e.target.value); setDiaFiltro('todos'); setSocorroFiltro('todos'); }}
+                onChange={e => { setEventoSelecionadoId(e.target.value); setDiaFiltro('todos'); }}
               >
                 {eventos.map(ev => (
                   <option key={ev.id} value={ev.id}>{ev.nome}</option>
@@ -199,8 +197,8 @@ export default function Triagem() {
             )}
 
             {/* Filtro por dia */}
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {['todos', 'Dia 1', 'Dia 2'].map(d => (
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {['todos', ...diasEvento.map(d => d.label)].map(d => (
                 <button
                   key={d}
                   className={diaFiltro === d ? 'btn-primary' : 'btn-secondary'}
@@ -208,24 +206,6 @@ export default function Triagem() {
                   onClick={() => setDiaFiltro(d)}
                 >
                   {d === 'todos' ? 'Todos' : d}
-                </button>
-              ))}
-            </div>
-
-            {/* Filtro de Socorro Espiritual */}
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {[
-                { val: 'todos', label: 'Todos' },
-                { val: 'com', label: 'Socorro c/ nº' },
-                { val: 'sem', label: 'Socorro s/ nº' },
-              ].map(({ val, label }) => (
-                <button
-                  key={val}
-                  className={socorroFiltro === val ? 'btn-primary' : 'btn-secondary'}
-                  style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-                  onClick={() => setSocorroFiltro(val)}
-                >
-                  {label}
                 </button>
               ))}
             </div>
@@ -269,12 +249,9 @@ export default function Triagem() {
           {eventoAtual && (
             <div style={{ padding: '10px 4px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '20px' }}>
               <span>📋 <strong>{pacientesFiltrados.length}</strong> paciente(s) exibido(s)</span>
-              {diaFiltro === 'todos' && (
-                <>
-                  <span>Dia 1: <strong>{listaPacientes.filter(p => p.evento_id == eventoSelecionadoId && p.dia_atendimento === 'Dia 1').length}</strong></span>
-                  <span>Dia 2: <strong>{listaPacientes.filter(p => p.evento_id == eventoSelecionadoId && p.dia_atendimento === 'Dia 2').length}</strong></span>
-                </>
-              )}
+              {diaFiltro === 'todos' && diasEvento.map(d => (
+                <span key={d.label}>{d.label}: <strong>{listaPacientes.filter(p => p.evento_id == eventoSelecionadoId && p.dia_atendimento === d.label).length}</strong></span>
+              ))}
             </div>
           )}
 
@@ -312,9 +289,11 @@ export default function Triagem() {
                       <td className="action-buttons">
                         <button className="btn-action btn-print" onClick={() => imprimirFichaUnica(p)} title="Imprimir Prontuário">📄</button>
                         <button className="btn-action btn-edit" onClick={() => abrirEdicao(p)} title="Editar Registro">✏️</button>
-                        <button className="btn-action" onClick={() => trocarDia(p)} title={`Mover para ${p.dia_atendimento === 'Dia 1' ? 'Dia 2' : 'Dia 1'}`} style={{ color: '#7c3aed' }}>
-                          {p.dia_atendimento === 'Dia 1' ? '2️⃣' : '1️⃣'}
-                        </button>
+                        {diasEvento.length > 1 && (
+                          <button className="btn-action" onClick={() => trocarDia(p)} title={`Mudar dia (atual: ${p.dia_atendimento})`} style={{ color: '#7c3aed' }}>
+                            🔀
+                          </button>
+                        )}
                         <button className="btn-action btn-delete" onClick={() => deletarPaciente(p.id)} title="Excluir Registro">🗑️</button>
                       </td>
                     </tr>
@@ -346,8 +325,7 @@ export default function Triagem() {
             <div>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dia</label>
               <select className="search-input" value={intervaloDia} onChange={e => setIntervaloDia(e.target.value)}>
-                <option>Dia 1</option>
-                <option>Dia 2</option>
+                {diasEvento.map(d => <option key={d.label}>{d.label}</option>)}
               </select>
             </div>
 
@@ -406,8 +384,7 @@ export default function Triagem() {
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dia</label>
                 <select className="search-input" value={form.dia_atendimento} onChange={e => setForm(f => ({ ...f, dia_atendimento: e.target.value }))}>
-                  <option>Dia 1</option>
-                  <option>Dia 2</option>
+                  {diasEvento.map(d => <option key={d.label}>{d.label}</option>)}
                 </select>
               </div>
               <div>

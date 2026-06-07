@@ -4,6 +4,15 @@ import api from '../services/api';
 import TopMenu from '../components/TopMenu';
 import { useNavigate } from 'react-router-dom';
 
+const EVENTO_VAZIO = {
+  nome: '', qtd_dias: 2,
+  data_dia1: '', vagas_dia1: 200, data_dia2: '', vagas_dia2: 200,
+  data_dia3: '', vagas_dia3: 200, data_dia4: '', vagas_dia4: 200, data_dia5: '', vagas_dia5: 200,
+  local_atendimento: '', instrucoes_pdf: '', insta: '', whats: '', email: '', site: '',
+};
+
+const USU_VAZIO = { nome: '', usuario: '', senha: '', perfil: 'voluntario', evento_id: '' };
+
 export default function Configuracoes() {
   const navigate = useNavigate();
   const [subTelaConfig, setSubTelaConfig] = useState('eventos');
@@ -12,10 +21,10 @@ export default function Configuracoes() {
 
   // Evt
   const [idEdicaoEvento, setIdEdicaoEvento] = useState(null);
-  const [novoEvento, setNovoEvento] = useState({ nome: '', data_dia1: '', vagas_dia1: 200, data_dia2: '', vagas_dia2: 200, local_atendimento: '', instrucoes_pdf: '', insta: '', whats: '', email: '', site: '' });
-  
+  const [novoEvento, setNovoEvento] = useState(EVENTO_VAZIO);
+
   // Usu
-  const [novoUsu, setNovoUsu] = useState({ nome: '', usuario: '', senha: '', perfil: 'voluntario' });
+  const [novoUsu, setNovoUsu] = useState(USU_VAZIO);
 
   useEffect(() => {
     const perfil = localStorage.getItem('perfilUsuario');
@@ -49,21 +58,24 @@ export default function Configuracoes() {
         toast.success('Evento criado!');
       }
       setIdEdicaoEvento(null);
-      setNovoEvento({ nome: '', data_dia1: '', vagas_dia1: 200, data_dia2: '', vagas_dia2: 200, local_atendimento: '', instrucoes_pdf: '', insta: '', whats: '', email: '', site: '' });
+      setNovoEvento(EVENTO_VAZIO);
       carregarTudo();
-    } catch (err) { 
-      toast.error('Erro ao guardar evento'); 
+    } catch (err) {
+      toast.error('Erro ao guardar evento');
     }
   };
 
   const prepararEdicaoEvento = (ev) => {
     setIdEdicaoEvento(ev.id);
+    const soData = (d) => (d ? d.split('T')[0] : '');
     setNovoEvento({
       nome: ev.nome,
-      data_dia1: ev.data_dia1 ? ev.data_dia1.split('T')[0] : '',
-      vagas_dia1: ev.vagas_dia1,
-      data_dia2: ev.data_dia2 ? ev.data_dia2.split('T')[0] : '',
-      vagas_dia2: ev.vagas_dia2,
+      qtd_dias: ev.qtd_dias || 2,
+      data_dia1: soData(ev.data_dia1), vagas_dia1: ev.vagas_dia1 ?? '',
+      data_dia2: soData(ev.data_dia2), vagas_dia2: ev.vagas_dia2 ?? '',
+      data_dia3: soData(ev.data_dia3), vagas_dia3: ev.vagas_dia3 ?? '',
+      data_dia4: soData(ev.data_dia4), vagas_dia4: ev.vagas_dia4 ?? '',
+      data_dia5: soData(ev.data_dia5), vagas_dia5: ev.vagas_dia5 ?? '',
       local_atendimento: ev.local_atendimento,
       instrucoes_pdf: ev.instrucoes_pdf,
       insta: ev.insta,
@@ -88,10 +100,10 @@ export default function Configuracoes() {
   const lidarComUsuario = async (e) => {
     e.preventDefault(); 
     try { 
-      await api.post('/usuarios', novoUsu); 
-      toast.success('Utilizador criado com sucesso!'); 
-      carregarTudo(); 
-      setNovoUsu({ nome: '', usuario: '', senha: '', perfil: 'voluntario' });
+      await api.post('/usuarios', novoUsu);
+      toast.success('Utilizador criado com sucesso!');
+      carregarTudo();
+      setNovoUsu(USU_VAZIO);
     } catch(err) { 
       toast.error(err.response?.data?.erro || 'Erro ao criar utilizador'); 
     } 
@@ -128,28 +140,26 @@ export default function Configuracoes() {
                     <input type="text" placeholder="Ex: Caminho da Cura - Março/2026" value={novoEvento.nome} onChange={e => setNovoEvento({...novoEvento, nome: e.target.value})} required />
                   </div>
                   
-                  <div className="form-row">
+                  <div className="form-group">
+                    <label>Quantidade de Dias</label>
+                    <select value={novoEvento.qtd_dias} onChange={e => setNovoEvento({...novoEvento, qtd_dias: parseInt(e.target.value, 10)})}>
+                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} {n === 1 ? 'dia' : 'dias'}</option>)}
+                    </select>
+                  </div>
+
+                  {Array.from({ length: novoEvento.qtd_dias }, (_, i) => i + 1).map(n => (
+                    <div className="form-row" key={n}>
                       <div className="form-col">
-                        <label>Data Dia 1</label>
-                        <input type="date" value={novoEvento.data_dia1} onChange={e => setNovoEvento({...novoEvento, data_dia1: e.target.value})} required />
+                        <label>Data Dia {n}</label>
+                        <input type="date" value={novoEvento[`data_dia${n}`] || ''} onChange={e => setNovoEvento({...novoEvento, [`data_dia${n}`]: e.target.value})} required />
                       </div>
                       <div className="form-col-small">
-                        <label>Vagas D1</label>
-                        <input type="number" placeholder="Qtd" value={novoEvento.vagas_dia1} onChange={e => setNovoEvento({...novoEvento, vagas_dia1: e.target.value})} required />
+                        <label>Vagas D{n}</label>
+                        <input type="number" placeholder="Qtd" value={novoEvento[`vagas_dia${n}`] ?? ''} onChange={e => setNovoEvento({...novoEvento, [`vagas_dia${n}`]: e.target.value})} required />
                       </div>
-                  </div>
-                  
-                  <div className="form-row">
-                      <div className="form-col">
-                        <label>Data Dia 2</label>
-                        <input type="date" value={novoEvento.data_dia2} onChange={e => setNovoEvento({...novoEvento, data_dia2: e.target.value})} required />
-                      </div>
-                      <div className="form-col-small">
-                        <label>Vagas D2</label>
-                        <input type="number" placeholder="Qtd" value={novoEvento.vagas_dia2} onChange={e => setNovoEvento({...novoEvento, vagas_dia2: e.target.value})} required />
-                      </div>
-                  </div>
-                  
+                    </div>
+                  ))}
+
                   <div className="form-row">
                       <div className="form-col">
                         <label>Instagram</label>
@@ -190,7 +200,7 @@ export default function Configuracoes() {
                       </div>
                       {idEdicaoEvento && (
                         <div className="form-col">
-                          <button type="button" className="btn-outline" onClick={() => { setIdEdicaoEvento(null); setNovoEvento({ nome: '', data_dia1: '', vagas_dia1: 200, data_dia2: '', vagas_dia2: 200, local_atendimento: '', instrucoes_pdf: '', insta: '', whats: '', email: '', site: '' }); }}>CANCELAR EDIÇÃO</button>
+                          <button type="button" className="btn-outline" onClick={() => { setIdEdicaoEvento(null); setNovoEvento(EVENTO_VAZIO); }}>CANCELAR EDIÇÃO</button>
                         </div>
                       )}
                   </div>
@@ -203,7 +213,7 @@ export default function Configuracoes() {
                   <div key={ev.id} className="list-item">
                     <div className="list-item-content">
                       <span className="list-item-title">{ev.nome}</span>
-                      <span className="list-item-subtitle">Ocupação Dia 1: {ev.ocupadas_dia1}/{ev.vagas_dia1} | Dia 2: {ev.ocupadas_dia2}/{ev.vagas_dia2}</span>
+                      <span className="list-item-subtitle">{(ev.dias || []).map(d => `${d.label}: ${d.ocupadas}/${d.vagas ?? '-'}`).join(' | ')}</span>
                     </div>
                     <div className="action-buttons">
                       <button className="btn-action btn-edit" title="Editar Evento" onClick={() => prepararEdicaoEvento(ev)}>✏️</button>
@@ -244,7 +254,18 @@ export default function Configuracoes() {
                       </select>
                     </div>
                   </div>
-                  
+
+                  {novoUsu.perfil !== 'admin' && (
+                    <div className="form-group">
+                      <label>Evento atribuído</label>
+                      <select value={novoUsu.evento_id} onChange={e => setNovoUsu({...novoUsu, evento_id: e.target.value})} required>
+                        <option value="">Selecione um evento...</option>
+                        {listaEventos.map(ev => <option key={ev.id} value={ev.id}>{ev.nome}</option>)}
+                      </select>
+                      <small style={{ color: 'var(--text-muted)' }}>O voluntário só verá o Cadastro e a Triagem deste evento.</small>
+                    </div>
+                  )}
+
                   <button type="submit" className="btn-primary" style={{ marginTop: '10px' }}>CRIAR ACESSO</button>
                 </form>
               </div>
@@ -255,7 +276,7 @@ export default function Configuracoes() {
                   <div key={u.id} className="list-item">
                     <div className="list-item-content">
                       <span className="list-item-title">{u.nome} <span style={{fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-muted)'}}>({u.usuario})</span></span>
-                      <span className="list-item-subtitle">Nível: <strong>{u.perfil}</strong></span>
+                      <span className="list-item-subtitle">Nível: <strong>{u.perfil}</strong>{u.perfil !== 'admin' && ` · Evento: ${u.nome_evento || '— todos —'}`}</span>
                     </div>
                     <button className="btn-action btn-delete" title="Remover Utilizador" onClick={() => deletarUsuario(u)}>🗑️</button>
                   </div>

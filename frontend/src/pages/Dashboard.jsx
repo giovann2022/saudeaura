@@ -26,6 +26,9 @@ export default function Dashboard() {
   };
 
   const eventoAtual = listaEventos.find(e => e.id == eventoSelecionadoId);
+  const dias = eventoAtual?.dias || [];
+  const totalOcupadas = dias.reduce((s, d) => s + d.ocupadas, 0);
+  const totalVagas = dias.reduce((s, d) => s + (d.vagas ?? 0), 0);
 
   const formatarDataBR = (d) => {
     if(!d) return 'Sem Data';
@@ -85,54 +88,45 @@ export default function Dashboard() {
               <div className="dashboard-grid">
                 <div className="stat-card" style={{ borderLeft: '4px solid var(--primary)' }}>
                   <span className="stat-header">Atendimentos Deste Evento</span>
-                  <span className="stat-value">{eventoAtual.ocupadas_dia1 + eventoAtual.ocupadas_dia2}</span>
+                  <span className="stat-value">{totalOcupadas}</span>
                 </div>
-                
+
                 <div className="stat-card" style={{ borderLeft: '4px solid var(--accent)' }}>
-                  <span className="stat-header">Vagas Totais Livres (D1+D2)</span>
+                  <span className="stat-header">Vagas Totais Livres</span>
                   <span className="stat-value" style={{ color: 'var(--accent)' }}>
-                     {(eventoAtual.vagas_dia1 + eventoAtual.vagas_dia2) - (eventoAtual.ocupadas_dia1 + eventoAtual.ocupadas_dia2)}
+                     {totalVagas - totalOcupadas}
                   </span>
                 </div>
-                
+
                 <div className="stat-card" style={{ borderLeft: '4px solid var(--secondary)' }}>
                   <span className="stat-header">Capacidade Base</span>
-                  <span className="stat-value" style={{ color: 'var(--secondary)' }}>{eventoAtual.vagas_dia1 + eventoAtual.vagas_dia2}</span>
+                  <span className="stat-value" style={{ color: 'var(--secondary)' }}>{totalVagas}</span>
                 </div>
 
-                <div className="stat-card" style={{ borderLeft: '4px solid #7c3aed' }}>
-                  <span className="stat-header">Socorro Espiritual — Dia 1</span>
-                  <span className="stat-value" style={{ color: '#7c3aed' }}>{eventoAtual.socorro_dia1 ?? 0}</span>
-                </div>
-
-                <div className="stat-card" style={{ borderLeft: '4px solid #7c3aed' }}>
-                  <span className="stat-header">Socorro Espiritual — Dia 2</span>
-                  <span className="stat-value" style={{ color: '#7c3aed' }}>{eventoAtual.socorro_dia2 ?? 0}</span>
-                </div>
+                {dias.map(d => (
+                  <div className="stat-card" key={d.label} style={{ borderLeft: '4px solid #7c3aed' }}>
+                    <span className="stat-header">Socorro Espiritual — {d.label}</span>
+                    <span className="stat-value" style={{ color: '#7c3aed' }}>{d.socorro ?? 0}</span>
+                  </div>
+                ))}
               </div>
 
               {/* Event Progress Breakdown */}
               <h3 className="section-title">Ocupação Separada por Dia</h3>
-              
+
               <div className="event-box" style={{ border: '2px solid var(--border-focus)', boxShadow: 'var(--shadow-md)' }}>
                 <div className="event-box-title">📍 {eventoAtual.nome} <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '10px'}}>(Visualização Focada)</span></div>
-                
-                <div className="day-grid">
-                  <div>
-                    <div className="day-header">
-                      <span className="day-label">🗓️ Dia 1</span>
-                      <span className="day-date">{formatarDataBR(eventoAtual.data_dia1)}</span>
-                    </div>
-                    {renderProgressBar(eventoAtual.ocupadas_dia1, eventoAtual.vagas_dia1, eventoAtual.socorro_dia1)}
-                  </div>
 
-                  <div>
-                    <div className="day-header">
-                      <span className="day-label">🗓️ Dia 2</span>
-                      <span className="day-date">{formatarDataBR(eventoAtual.data_dia2)}</span>
+                <div className="day-grid">
+                  {dias.map(d => (
+                    <div key={d.label}>
+                      <div className="day-header">
+                        <span className="day-label">🗓️ {d.label}</span>
+                        <span className="day-date">{formatarDataBR(d.data)}</span>
+                      </div>
+                      {renderProgressBar(d.ocupadas, d.vagas ?? 0, d.socorro)}
                     </div>
-                    {renderProgressBar(eventoAtual.ocupadas_dia2, eventoAtual.vagas_dia2, eventoAtual.socorro_dia2)}
-                  </div>
+                  ))}
                 </div>
               </div>
             </>

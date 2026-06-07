@@ -20,9 +20,8 @@ function gerarPDFReciboBuffer(senha, nomePaciente, diaAtendimento, tipoTratament
         doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
 
-        const dataAtendimento = diaAtendimento === 'Dia 1'
-            ? formatarDataBR(evento.data_dia1)
-            : formatarDataBR(evento.data_dia2);
+        const n = parseInt(String(diaAtendimento || '').replace(/\D/g, ''), 10) || 1;
+        const dataAtendimento = formatarDataBR(evento[`data_dia${n}`]);
 
         // Cabeçalho - Nome do Evento
         doc.fontSize(20).font('Helvetica-Bold')

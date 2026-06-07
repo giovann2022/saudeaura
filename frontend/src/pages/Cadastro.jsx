@@ -48,6 +48,14 @@ export default function Cadastro() {
   };
 
   const eventoAtual = listaEventos.find(e => e.id == eventoSelecionadoId);
+  const diasEvento = eventoAtual?.dias || [];
+  const diaAtual = diasEvento.find(d => d.label === dia);
+
+  // Garante que o dia selecionado existe no evento atual (eventos têm de 1 a 5 dias)
+  useEffect(() => {
+    const ds = eventoAtual?.dias || [];
+    if (ds.length && !ds.some(d => d.label === dia)) setDia(ds[0].label);
+  }, [eventoAtual, dia]);
 
   const formatarDataBR = (d) => { if(!d) return ''; const p = d.split('T')[0].split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
 
@@ -166,9 +174,9 @@ export default function Cadastro() {
                 </select>
               </div>
 
-              {eventoAtual && (
+              {diaAtual && (
                 <div className="info-block">
-                  Vagas Disponíveis: <strong>{dia === 'Dia 1' ? (eventoAtual.vagas_dia1 - eventoAtual.ocupadas_dia1) : (eventoAtual.vagas_dia2 - eventoAtual.ocupadas_dia2)}</strong>
+                  Vagas Disponíveis: <strong>{(diaAtual.vagas ?? 0) - diaAtual.ocupadas}</strong>
                 </div>
               )}
 
@@ -183,8 +191,9 @@ export default function Cadastro() {
                 <div className="form-col">
                   <label>Dia do Atendimento</label>
                   <select value={dia} onChange={e => setDia(e.target.value)}>
-                    <option value="Dia 1">Dia 1 - {eventoAtual ? formatarDataBR(eventoAtual.data_dia1) : ''}</option>
-                    <option value="Dia 2">Dia 2 - {eventoAtual ? formatarDataBR(eventoAtual.data_dia2) : ''}</option>
+                    {diasEvento.map(d => (
+                      <option key={d.label} value={d.label}>{d.label} - {formatarDataBR(d.data)}</option>
+                    ))}
                   </select>
                 </div>
               </div>

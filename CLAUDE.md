@@ -14,6 +14,12 @@ Backend (repo root):
 - `npm run dev` — runs **only** `server.js` (the API) via nodemon. There is no npm script
   for the WhatsApp agent; start it separately with `node agente-whatsapp.js`.
 - No test suite exists (`npm test` just errors out).
+- **Undeclared agent deps:** `agente-whatsapp.js` requires `@whiskeysockets/baileys`,
+  `pino`, `qrcode`, and `qrcode-terminal`, none of which are in `package.json` /
+  `package-lock.json` (they were installed manually on the VPS). It also calls Gemini via
+  the raw REST endpoint (axios → `generativelanguage.googleapis.com`), not an SDK. So the
+  agent won't run from a fresh `npm install` locally without installing those four packages
+  by hand.
 
 Frontend (`cd frontend`):
 - `npm run dev` — Vite dev server (talks to `http://localhost:3000` directly)

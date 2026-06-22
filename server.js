@@ -319,14 +319,17 @@ app.delete('/eventos/:id', async (req, res) => {
 app.get('/pacientes/buscar', async (req, res) => {
     const { q } = req.query;
     if (!q || q.trim().length < 3) return res.json([]);
+    const digitos = q.trim().replace(/\D/g, '');
     const r = await pool.query(
         `SELECT DISTINCT ON (p.telefone, p.nome) p.nome, p.telefone, p.nascimento, p.idade,
                 p.endereco, p.numero, p.complemento, p.bairro, p.cidade, p.estado
          FROM pacientes p
-         WHERE p.nome ILIKE $1 OR p.telefone ILIKE $1
+         WHERE p.nome ILIKE $1
+            OR p.telefone ILIKE $1
+            OR (length($2) >= 3 AND regexp_replace(p.telefone, '[^0-9]', '', 'g') LIKE $2)
          ORDER BY p.telefone, p.nome, p.id DESC
          LIMIT 8`,
-        [`%${q.trim()}%`]
+        [`%${q.trim()}%`, `%${digitos}%`]
     );
     res.json(r.rows);
 });

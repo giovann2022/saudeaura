@@ -233,6 +233,31 @@ app.delete('/usuarios/:id', async (req, res) => {
 });
 
 // === EVENTOS ===
+app.get('/backup', async (req, res) => {
+    if (req.user.perfil !== 'admin') return res.status(403).json({ erro: 'Acesso restrito a administradores' });
+    const { evento_id } = req.query;
+
+    const eventosFiltro = evento_id
+        ? (await pool.query('SELECT * FROM eventos WHERE id = $1', [evento_id])).rows
+        : (await pool.query('SELECT * FROM eventos ORDER BY id ASC')).rows;
+
+    const resultado = await Promise.all(eventosFiltro.map(async (ev) => {
+        const { rows: pacientes } = await pool.query(
+            'SELECT * FROM pacientes WHERE evento_id = $1 ORDER BY dia_atendimento, senha_atendimento NULLS LAST, nome',
+            [ev.id]
+        );
+        return { ...ev, pacientes };
+    }));
+
+    const nomeArquivo = evento_id
+        ? `backup_evento_${evento_id}_${new Date().toISOString().slice(0,10)}.json`
+        : `backup_completo_${new Date().toISOString().slice(0,10)}.json`;
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+    res.json({ exportado_em: new Date().toISOString(), versao: '1.0', eventos: resultado });
+});
+
 app.get('/eventos', async (req, res) => {
     try {
         // Voluntário vinculado a um evento só enxerga esse evento; admin (ou usuário sem

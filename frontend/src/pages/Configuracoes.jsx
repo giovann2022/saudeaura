@@ -119,20 +119,36 @@ export default function Configuracoes() {
     }
   };
 
-  const exportarVcf = async (eventoId, nomeEvento) => {
+  const baixarArquivo = async (url, nomeArquivo, tipo) => {
     try {
-      const url = eventoId ? `/pacientes/exportar-vcf?evento_id=${eventoId}` : '/pacientes/exportar-vcf';
       const res = await api.get(url, { responseType: 'blob' });
-      const blob = new Blob([res.data], { type: 'text/vcard' });
+      const blob = new Blob([res.data], { type: tipo });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `contatos_${nomeEvento ? nomeEvento.replace(/\s+/g, '_') : 'todos'}.vcf`;
+      link.download = nomeArquivo;
       link.click();
       URL.revokeObjectURL(link.href);
     } catch {
-      toast.error('Erro ao exportar contatos');
+      toast.error('Erro ao baixar arquivo');
     }
   };
+
+  const exportarVcf = async (eventoId, nomeEvento) => {
+    const url = eventoId ? `/pacientes/exportar-vcf?evento_id=${eventoId}` : '/pacientes/exportar-vcf';
+    const nome = `contatos_${nomeEvento ? nomeEvento.replace(/\s+/g, '_') : 'todos'}.vcf`;
+    await baixarArquivo(url, nome, 'text/vcard');
+  };
+
+  const exportarBackup = async (eventoId, nomeEvento) => {
+    const url = eventoId ? `/backup?evento_id=${eventoId}` : '/backup';
+    const hoje = new Date().toISOString().slice(0, 10);
+    const nome = eventoId
+      ? `backup_${nomeEvento.replace(/\s+/g, '_')}_${hoje}.json`
+      : `backup_completo_${hoje}.json`;
+    await baixarArquivo(url, nome, 'application/json');
+  };
+
+
 
   return (
     <div className="app-wrapper">
@@ -244,9 +260,34 @@ export default function Configuracoes() {
           {subTelaConfig === 'exportar' && (
             <div>
               <div className="section-block">
+                <h3 className="section-title">💾 Backup do Banco de Dados</h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '16px', fontSize: '0.9rem' }}>
+                  Baixe um arquivo <strong>.json</strong> com todos os dados do evento (pacientes, datas, queixas). Guarde no Google Drive ou pendrive — se perder o servidor, este arquivo contém tudo para restaurar.
+                </p>
+                <div className="list-container">
+                  <div className="list-item">
+                    <div className="list-item-content">
+                      <span className="list-item-title">Backup Completo</span>
+                      <span className="list-item-subtitle">Todos os eventos e pacientes em um único arquivo</span>
+                    </div>
+                    <button className="btn-action btn-edit" title="Baixar backup completo" onClick={() => exportarBackup(null, 'completo')}>💾</button>
+                  </div>
+                  {listaEventos.map(ev => (
+                    <div key={ev.id} className="list-item">
+                      <div className="list-item-content">
+                        <span className="list-item-title">{ev.nome}</span>
+                        <span className="list-item-subtitle">{(ev.dias || []).map(d => `${d.label}: ${d.ocupadas} pacientes`).join(' | ')}</span>
+                      </div>
+                      <button className="btn-action btn-edit" title="Baixar backup deste evento" onClick={() => exportarBackup(ev.id, ev.nome)}>💾</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="section-block">
                 <h3 className="section-title">📱 Lista Telefônica para Android</h3>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '16px', fontSize: '0.9rem' }}>
-                  Baixe um arquivo <strong>.vcf</strong> com nome e telefone dos pacientes cadastrados. No Android, abra o arquivo para importar todos os contatos de uma vez no app Contatos.
+                  Baixe um arquivo <strong>.vcf</strong> com nome e telefone dos pacientes. No Android, abra o arquivo para importar todos os contatos de uma vez.
                 </p>
                 <div className="list-container">
                   <div className="list-item">

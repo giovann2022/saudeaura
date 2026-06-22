@@ -316,6 +316,21 @@ app.delete('/eventos/:id', async (req, res) => {
 });
 
 // === PACIENTES ===
+app.get('/pacientes/buscar', async (req, res) => {
+    const { q } = req.query;
+    if (!q || q.trim().length < 3) return res.json([]);
+    const r = await pool.query(
+        `SELECT DISTINCT ON (p.telefone, p.nome) p.nome, p.telefone, p.nascimento, p.idade,
+                p.endereco, p.numero, p.complemento, p.bairro, p.cidade, p.estado
+         FROM pacientes p
+         WHERE p.nome ILIKE $1 OR p.telefone ILIKE $1
+         ORDER BY p.telefone, p.nome, p.id DESC
+         LIMIT 8`,
+        [`%${q.trim()}%`]
+    );
+    res.json(r.rows);
+});
+
 app.get('/pacientes/exportar-vcf', async (req, res) => {
     if (req.user.perfil !== 'admin') return res.status(403).json({ erro: 'Acesso restrito a administradores' });
     const { evento_id } = req.query;

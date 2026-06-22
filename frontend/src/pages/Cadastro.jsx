@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import api from '../services/api';
@@ -32,6 +32,9 @@ export default function Cadastro() {
   
   const [carregando, setCarregando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
+  const [sugestoes, setSugestoes] = useState([]);
+  const timerBusca = useRef(null);
+  const refSugestoes = useRef(null);
 
   useEffect(() => {
     carregarEventos();
@@ -121,6 +124,44 @@ export default function Cadastro() {
     }
   };
 
+  useEffect(() => {
+    const fechar = (e) => { if (refSugestoes.current && !refSugestoes.current.contains(e.target)) setSugestoes([]); };
+    document.addEventListener('mousedown', fechar);
+    return () => document.removeEventListener('mousedown', fechar);
+  }, []);
+
+  const handleNomeBusca = (val) => {
+    setNome(val);
+    clearTimeout(timerBusca.current);
+    if (val.trim().length < 3) { setSugestoes([]); return; }
+    timerBusca.current = setTimeout(async () => {
+      try {
+        const res = await api.get(`/pacientes/buscar?q=${encodeURIComponent(val)}`);
+        setSugestoes(res.data);
+      } catch {}
+    }, 300);
+  };
+
+  const preencherPaciente = (p) => {
+    setNome(p.nome);
+    setTelefone(p.telefone || '');
+    if (p.nascimento) {
+      const d = new Date(p.nascimento);
+      const dia = String(d.getUTCDate()).padStart(2, '0');
+      const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const ano = d.getUTCFullYear();
+      handleNascimento(`${dia}${mes}${ano}`);
+    }
+    setRua(p.endereco || '');
+    setNumero(p.numero || '');
+    setComplemento(p.complemento || '');
+    setBairro(p.bairro || '');
+    setCidade(p.cidade || '');
+    setEstado(p.estado || '');
+    setSugestoes([]);
+    toast.success('Dados preenchidos automaticamente!');
+  };
+
   const limparFormulario = () => {
     setNome(''); setTelefone(''); setNascimento(''); setIdade('');
     setCep(''); setRua(''); setNumero(''); setComplemento(''); setBairro(''); setCidade(''); setEstado('');
@@ -201,9 +242,21 @@ export default function Cadastro() {
 
             <div className="section-block">
               <h3 className="section-title">Dados Pessoais</h3>
-              <div className="form-group">
+              <div className="form-group" style={{ position: 'relative' }} ref={refSugestoes}>
                 <label>Nome Completo</label>
-                <input type="text" placeholder="Nome completo do paciente" value={nome} onChange={e => setNome(e.target.value)} required />
+                <input type="text" placeholder="Nome completo do paciente" value={nome} onChange={e => handleNomeBusca(e.target.value)} autoComplete="off" required />
+                {sugestoes.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--card-bg, #fff)', border: '1px solid var(--border-color, #ddd)', borderRadius: '8px', zIndex: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: '220px', overflowY: 'auto' }}>
+                    {sugestoes.map((p, i) => (
+                      <div key={i} onMouseDown={() => preencherPaciente(p)} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: i < sugestoes.length - 1 ? '1px solid var(--border-color, #f0f0f0)' : 'none' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-bg, #f5f5f5)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <div style={{ fontWeight: '600', fontSize: '0.95rem' }}>{p.nome}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #888)' }}>{p.telefone}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div className="form-row">

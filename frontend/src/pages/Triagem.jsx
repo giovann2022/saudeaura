@@ -180,9 +180,8 @@ export default function Triagem() {
         <TopMenu />
 
         <div className="table-container">
-          <div className="table-header-controls" style={{ flexWrap: 'wrap', gap: '10px' }}>
-
-            {/* Seletor de evento */}
+          {/* Linha 1: evento + dia + impressão */}
+          <div className="table-header-controls" style={{ flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
             {eventos.length > 0 && (
               <select
                 className="search-input"
@@ -196,7 +195,6 @@ export default function Triagem() {
               </select>
             )}
 
-            {/* Filtro por dia */}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {['todos', ...diasEvento.map(d => d.label)].map(d => (
                 <button
@@ -210,39 +208,23 @@ export default function Triagem() {
               ))}
             </div>
 
-            {/* Busca */}
+            <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+              <button className="btn-secondary" onClick={() => imprimirFichasLote(pacientesFiltrados)} disabled={pacientesFiltrados.length === 0}>🖨️ LOTE</button>
+              <button className="btn-secondary" onClick={() => { setIntervaloDe(''); setIntervaloAte(''); setIntervaloAberto(true); }}>🖨️ INTERVALO</button>
+              <button className="btn-secondary" onClick={imprimirSocorros}>🖨️ SOCORROS</button>
+            </div>
+          </div>
+
+          {/* Linha 2: busca destacada */}
+          <div style={{ marginBottom: '8px' }}>
             <input
               type="text"
               className="search-input"
               placeholder="🔍 Buscar por Nome ou Senha..."
               value={termoBusca}
               onChange={e => setTermoBusca(e.target.value)}
+              style={{ width: '100%', fontSize: '1rem', padding: '12px 16px', boxSizing: 'border-box' }}
             />
-
-            {/* Imprimir lote */}
-            <button
-              className="btn-secondary"
-              onClick={() => imprimirFichasLote(pacientesFiltrados)}
-              disabled={pacientesFiltrados.length === 0}
-            >
-              🖨️ IMPRIMIR LOTE
-            </button>
-
-            {/* Imprimir intervalo */}
-            <button
-              className="btn-secondary"
-              onClick={() => { setIntervaloDe(''); setIntervaloAte(''); setIntervaloAberto(true); }}
-            >
-              🖨️ INTERVALO
-            </button>
-
-            {/* Imprimir todos os Socorros Espirituais */}
-            <button
-              className="btn-secondary"
-              onClick={imprimirSocorros}
-            >
-              🖨️ SOCORROS
-            </button>
           </div>
 
           {/* Resumo do evento */}

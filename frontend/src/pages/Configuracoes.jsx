@@ -119,6 +119,21 @@ export default function Configuracoes() {
     }
   };
 
+  const exportarVcf = async (eventoId, nomeEvento) => {
+    try {
+      const url = eventoId ? `/pacientes/exportar-vcf?evento_id=${eventoId}` : '/pacientes/exportar-vcf';
+      const res = await api.get(url, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'text/vcard' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `contatos_${nomeEvento ? nomeEvento.replace(/\s+/g, '_') : 'todos'}.vcf`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch {
+      toast.error('Erro ao exportar contatos');
+    }
+  };
+
   return (
     <div className="app-wrapper">
       <div className="main-container config-view">
@@ -128,6 +143,7 @@ export default function Configuracoes() {
           <div className="subtabs">
             <button onClick={() => setSubTelaConfig('eventos')} className={`subtab-btn ${subTelaConfig === 'eventos' ? 'active' : ''}`}>📅 Eventos</button>
             <button onClick={() => setSubTelaConfig('usuarios')} className={`subtab-btn ${subTelaConfig === 'usuarios' ? 'active' : ''}`}>👥 Utilizadores</button>
+            <button onClick={() => setSubTelaConfig('exportar')} className={`subtab-btn ${subTelaConfig === 'exportar' ? 'active' : ''}`}>📱 Exportar</button>
           </div>
           
           {subTelaConfig === 'eventos' && (
@@ -221,6 +237,35 @@ export default function Configuracoes() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {subTelaConfig === 'exportar' && (
+            <div>
+              <div className="section-block">
+                <h3 className="section-title">📱 Lista Telefônica para Android</h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '16px', fontSize: '0.9rem' }}>
+                  Baixe um arquivo <strong>.vcf</strong> com nome e telefone dos pacientes cadastrados. No Android, abra o arquivo para importar todos os contatos de uma vez no app Contatos.
+                </p>
+                <div className="list-container">
+                  <div className="list-item">
+                    <div className="list-item-content">
+                      <span className="list-item-title">Todos os eventos</span>
+                      <span className="list-item-subtitle">Contatos de todos os cadastros (duplicatas por telefone removidas)</span>
+                    </div>
+                    <button className="btn-action btn-edit" title="Baixar VCF" onClick={() => exportarVcf(null, 'todos')}>⬇️</button>
+                  </div>
+                  {listaEventos.map(ev => (
+                    <div key={ev.id} className="list-item">
+                      <div className="list-item-content">
+                        <span className="list-item-title">{ev.nome}</span>
+                        <span className="list-item-subtitle">{(ev.dias || []).map(d => `${d.label}: ${d.ocupadas} pacientes`).join(' | ')}</span>
+                      </div>
+                      <button className="btn-action btn-edit" title="Baixar VCF" onClick={() => exportarVcf(ev.id, ev.nome)}>⬇️</button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

@@ -316,6 +316,38 @@ app.delete('/eventos/:id', async (req, res) => {
 });
 
 // === PACIENTES ===
+app.get('/pacientes/exportar-vcf', async (req, res) => {
+    if (req.user.perfil !== 'admin') return res.status(403).json({ erro: 'Acesso restrito a administradores' });
+    const { evento_id } = req.query;
+    const params = [];
+    let where = '';
+    if (evento_id) { where = ' WHERE p.evento_id = $1'; params.push(evento_id); }
+    const r = await pool.query(
+        `SELECT DISTINCT ON (p.telefone) p.nome, p.telefone FROM pacientes p${where} ORDER BY p.telefone, p.nome`,
+        params
+    );
+
+    const normalizarTel = (tel) => {
+        if (!tel) return null;
+        const d = tel.replace(/\D/g, '');
+        if (d.length >= 10 && d.length <= 11) return `+55${d}`;
+        if (d.length === 13 && d.startsWith('55')) return `+${d}`;
+        return d || null;
+    };
+
+    const linhas = r.rows.map(p => {
+        const tel = normalizarTel(p.telefone);
+        const linhasVcard = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${p.nome}`, `N:${p.nome.split(' ').slice(-1)[0]};${p.nome.split(' ').slice(0, -1).join(' ')};;;`];
+        if (tel) linhasVcard.push(`TEL;TYPE=CELL:${tel}`);
+        linhasVcard.push('END:VCARD');
+        return linhasVcard.join('\r\n');
+    });
+
+    res.setHeader('Content-Type', 'text/vcard; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="contatos_saude_aura.vcf"');
+    res.send(linhas.join('\r\n'));
+});
+
 app.get('/pacientes', async (req, res) => {
     // Voluntário vinculado só vê pacientes do seu evento; admin/legado vê todos.
     const restrito = req.user.perfil !== 'admin' && req.user.evento_id;
